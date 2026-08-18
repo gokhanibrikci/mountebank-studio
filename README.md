@@ -330,6 +330,11 @@ let anyone rewrite those mocks.
 
 ---
 
+## Releases
+
+Version history is in [CHANGELOG.md](CHANGELOG.md), and the package is on npm as
+[`mountebank-studio`](https://www.npmjs.com/package/mountebank-studio).
+
 ## Licence
 
 Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
