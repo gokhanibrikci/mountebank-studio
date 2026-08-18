@@ -28,3 +28,6 @@ notes/
 
 # npm pack output
 *.tgz
+
+# never let a publish token near a commit
+.npmrc
