@@ -61,6 +61,49 @@ run JavaScript, `--host 0.0.0.0` to expose the panel (read the warning it prints
 Mountebank is started bound to loopback with injection **off**, and its port is never
 exposed — only the panel's is.
 
+### Installed, if you reach for it often
+
+```bash
+npm i -g mountebank-studio
+```
+
+Then `mountebank-studio`, from anywhere. The only difference is that `npx` resolves the
+package on every run and this resolves it once.
+
+To pin one version for a whole team, add it to a project as a development dependency
+and give it a script:
+
+```bash
+npm i -D mountebank-studio
+```
+
+```json
+"scripts": { "mocks": "mountebank-studio" }
+```
+
+`npm run mocks` then starts the same version for everyone who checks the project out.
+Installing it as a *runtime* dependency does nothing useful: this is a program to run,
+not a library to import.
+
+### What survives a restart, and what does not
+
+Mountebank keeps imposters in memory, so the instance started for you is empty every
+time. To keep what you built, copy the JSON from **Settings → Full configuration** —
+it is already in the shape `--configfile` expects — and start Mountebank yourself with
+it:
+
+```bash
+mb start --configfile mocks.json
+npx mountebank-studio --mb-url http://localhost:2525
+```
+
+The panel reaches it through this origin either way, so starting it yourself costs you
+no flags.
+
+The environments you add are stored in the browser rather than on the machine, so a
+different browser — or cleared site data — meets the welcome screen again. What lives
+where is spelled out under [Adding an environment](#adding-an-environment).
+
 ### Or from a checkout
 
 ```bash

@@ -327,13 +327,16 @@ async function main() {
   server.listen(opts.port, opts.host, () => {
     const where = `http://${opts.host === '0.0.0.0' ? 'localhost' : opts.host}:${opts.port}`;
     const version = info?.version ? `mountebank ${info.version}` : 'mountebank (version unknown)';
+    /* One column, whatever the label. "Using your instance" is four characters longer
+       than "Started for you", and with a fixed gap it pushed that row out of line. */
+    const label = (text) => text.padEnd(25);
 
     console.log(
       [
         '',
-        `  Mountebank Studio        ${where}`,
-        `  ${opts.mbUrl === null ? 'Started for you' : 'Using your instance'}          ${upstream} · ${version}`,
-        `  Reached through          ${where}/mb/${ROUTE} — nothing is cross-origin`,
+        `  ${label('Mountebank Studio')}${where}`,
+        `  ${label(opts.mbUrl === null ? 'Started for you' : 'Using your instance')}${upstream} · ${version}`,
+        `  ${label('Reached through')}${where}/mb/${ROUTE} — nothing is cross-origin`,
         '',
         opts.allowInjection
           ? '  Injection is ON. Stubs on this instance can run JavaScript.\n'
