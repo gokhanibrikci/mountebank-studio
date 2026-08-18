@@ -1,0 +1,117 @@
+# What has to hold before anything lands.
+#
+# The four checks are the same four a contributor runs locally (see
+# CONTRIBUTING.md), in the same order, so a green tick here means the same thing it
+# means on a laptop. The fifth is the one that only a machine will remember to do:
+# start the published entry point and prove the thing we hand users actually serves
+# a panel and can write to a Mountebank.
+#
+# Node 20 and 22 both run, because package.json claims `engines: node >=20` and an
+# unverified claim is a bug waiting for someone else's afternoon.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags-ignore: ['**']
+  pull_request:
+    branches: [main]
+
+# Nothing here writes to the repository.
+permissions:
+  contents: read
+
+# A newer push makes an older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: yarn
+
+      - name: Install
+        run: yarn install --frozen-lockfile
+
+      - name: Types
+        run: yarn check:types
+
+      - name: Tests
+        run: yarn tests
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Build
+        run: yarn build
+
+      # ── the part a laptop forgets ─────────────────────────────────────────
+      # `npx mountebank-studio` is the first thing anyone runs, so it is worth
+      # proving on every commit: the server starts a Mountebank, serves the built
+      # panel, forwards to the instance on one origin, and a write gets through.
+      - name: Smoke test the bundle
+        run: |
+          set -euo pipefail
+          node server/index.mjs --port 5399 --mb-port 2599 > studio.log 2>&1 &
+          STUDIO=$!
+          trap 'kill $STUDIO 2>/dev/null || true' EXIT
+
+          for i in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:5399/mb/local/config > /dev/null; then break; fi
+            if [ "$i" = 60 ]; then echo "the admin API never answered"; cat studio.log; exit 1; fi
+            sleep 1
+          done
+
+          echo "— the panel is served"
+          curl -fsS -m 5 http://127.0.0.1:5399/ | grep -q '<div id="root">'
+
+          echo "— the instance answers through this origin"
+          curl -fsS -m 5 http://127.0.0.1:5399/mb/local/config | grep -q '"version"'
+
+          echo "— a first run is handed an environment"
+          curl -fsS -m 5 http://127.0.0.1:5399/mb/bootstrap.json | grep -q '"/mb/local"'
+
+          echo "— a write gets through the forward"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 \
+            -X POST http://127.0.0.1:5399/mb/local/imposters \
+            -H 'Content-Type: application/json' \
+            -d '{"port":6399,"protocol":"http","name":"ci","stubs":[{"responses":[{"is":{"statusCode":200,"body":"ok"}}]}]}')
+          [ "$code" = "201" ] || { echo "expected 201, got $code"; cat studio.log; exit 1; }
+
+          echo "— and the imposter it created answers"
+          curl -fsS -m 5 http://127.0.0.1:6399/ | grep -q ok
+
+          echo "— injection is off and the instance is loopback-only, as shipped"
+          # Mountebank pretty-prints /config, so these greps tolerate the spacing.
+          config=$(curl -fsS -m 5 http://127.0.0.1:5399/mb/local/config)
+          echo "$config" | grep -qE '"allowInjection": *false'
+          echo "$config" | grep -qE '"localOnly": *true'
+
+      - name: Publishable shape
+        # The tarball must carry a built panel and the server, and nothing else that
+        # could ship a secret or a note by accident.
+        run: |
+          set -euo pipefail
+          files=$(npm pack --dry-run 2>&1)
+          echo "$files"
+          echo "$files" | grep -q 'dist/index.html'
+          echo "$files" | grep -q 'server/index.mjs'
+          echo "$files" | grep -q 'LICENSE'
+          ! echo "$files" | grep -q 'notes/'
+          ! echo "$files" | grep -q '.npmrc'

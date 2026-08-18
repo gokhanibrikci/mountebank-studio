@@ -1,5 +1,8 @@
 # Mountebank Studio
 
+[![CI](https://github.com/gokhanibrikci/mountebank-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/gokhanibrikci/mountebank-studio/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/mountebank-studio)](https://www.npmjs.com/package/mountebank-studio)
+
 A visual control surface for [Mountebank](https://www.mbtest.dev/). It talks to the
 admin API of any instance you point it at and gives you screens for the things you
 would otherwise hand-write as JSON: imposters, stubs, predicates, responses, proxy
