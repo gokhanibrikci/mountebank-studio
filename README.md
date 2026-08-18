@@ -36,20 +36,38 @@ and how that was verified against the real package — is in
 > Mountebank itself is MIT-licensed and is not redistributed here: the panel talks to
 > an instance you run.
 
+## One command
+
+```bash
+npx mountebank-studio
+```
+
+That starts a Mountebank, serves the panel, and opens on a working instance. Nothing
+to configure, and nothing to allow: the panel and the instance share one origin, so
+the CORS question below never comes up. Ctrl-C stops both.
+
+```
+  Mountebank Studio        http://127.0.0.1:5273
+  Started for you          http://127.0.0.1:2525 · mountebank 2.9.1
+  Reached through          http://127.0.0.1:5273/mb/local — nothing is cross-origin
+```
+
+Useful flags: `--port` for the panel, `--mb-port` for the instance, `--mb-url` to use
+an instance you already run instead of starting one, `--allow-injection` to let stubs
+run JavaScript, `--host 0.0.0.0` to expose the panel (read the warning it prints).
+Mountebank is started bound to loopback with injection **off**, and its port is never
+exposed — only the panel's is.
+
+### Or from a checkout
+
 ```bash
 yarn install
 yarn dev          # http://localhost:5273
 ```
 
-The panel starts with an empty list and opens on a welcome screen: add your
-instances there, one at a time, and press **Start** to enter the one you want to
-work in. Everything is editable later under **Settings**. That screen also explains
-Mountebank's model and carries a one-line command for standing an instance up if you
-have none:
-
-```bash
-npx mountebank@2.9.1 --origin "http://localhost:5273"
-```
+Then add your own instances. The panel starts with an empty list and opens on a
+welcome screen: add them one at a time and press **Start** to enter one. Everything is
+editable later under **Settings**.
 
 ---
 

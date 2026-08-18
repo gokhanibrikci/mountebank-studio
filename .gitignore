@@ -25,3 +25,6 @@ dist-ssr
 
 # Product and pricing notes — deliberately not published
 notes/
+
+# npm pack output
+*.tgz

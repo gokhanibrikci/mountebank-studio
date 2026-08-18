@@ -12,7 +12,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 
 import App from './App';
+import { seedFromHost } from './lib/environments';
 import { readyToRoute } from './lib/mb/reach';
+import { useEnvironments } from './store/useEnvironments';
 import './styles/base.css';
 
 /**
@@ -40,6 +42,13 @@ if (!container) throw new Error('index.html is missing its #root element');
  * every target is called directly.
  */
 await readyToRoute();
+
+/*
+ * A first run served by `npx mountebank-studio` gets its environment from the host
+ * that served it, so the panel opens on a working instance instead of an empty
+ * welcome. Nothing is adopted when this browser already has a list of its own.
+ */
+useEnvironments.getState().seed(await seedFromHost());
 
 createRoot(container).render(
   <StrictMode>

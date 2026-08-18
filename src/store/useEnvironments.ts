@@ -30,6 +30,12 @@ export interface EnvironmentDraft {
 
 interface EnvironmentsState {
   list: MbEnvironment[];
+  /**
+   * Adopt a list the host published, but ONLY when this browser has none of its own.
+   * A user's edits always win: the point is a first run that works, not a server that
+   * keeps overwriting what someone changed.
+   */
+  seed: (list: MbEnvironment[]) => void;
   add: (draft: EnvironmentDraft) => MbEnvironment;
   update: (id: EnvId, patch: Partial<EnvironmentDraft>) => void;
   remove: (id: EnvId) => void;
@@ -70,6 +76,11 @@ export const useEnvironments = create<EnvironmentsState>()(
             return next;
           }),
         }),
+
+      seed: (list) => {
+        if (get().list.length > 0 || list.length === 0) return;
+        set({ list });
+      },
 
       remove: (id) => set({ list: get().list.filter((e) => e.id !== id) }),
     }),

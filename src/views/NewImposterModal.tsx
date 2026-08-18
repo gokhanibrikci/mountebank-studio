@@ -143,6 +143,19 @@ function checkPort(text: string, imposters: Imposter[]): PortCheck {
     return { port, error: `Port ${port} is already taken by ${holder.name}.` };
   }
 
+  /*
+   * The port this page is served on. An imposter there answers instead of the panel
+   * — and on a machine that resolves localhost to IPv6 first it can bind alongside
+   * it, so the panel appears to break for no reason. Refused rather than explained
+   * afterwards.
+   */
+  if (String(port) === window.location.port) {
+    return {
+      port,
+      error: `Port ${port} is where this panel is served. An imposter there would answer instead of it.`,
+    };
+  }
+
   return { port, error: null };
 }
 

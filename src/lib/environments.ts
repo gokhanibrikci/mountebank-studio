@@ -128,6 +128,30 @@ export function validate(
 export const normalise = (target: string): string => target.trim().replace(/\/+$/, '');
 
 /**
+ * The same reading, from a runtime endpoint rather than a build-time variable.
+ *
+ * `npx mountebank-studio` starts a Mountebank, forwards it, and publishes the
+ * environment that reaches it at `/mb/bootstrap.json`. Seeding from there is what
+ * makes one command enough: nobody has to type a URL to see the panel work. A build
+ * served any other way simply 404s here and the welcome screen asks, as before.
+ */
+export async function seedFromHost(): Promise<MbEnvironment[]> {
+  try {
+    const response = await fetch('/mb/bootstrap.json', { cache: 'no-store' });
+    if (!response.ok) return [];
+    const body: unknown = await response.json();
+    const list =
+      typeof body === 'object' && body !== null
+        ? (body as { environments?: unknown }).environments
+        : undefined;
+    return Array.isArray(list) ? seedFromEnv(JSON.stringify(list)) : [];
+  } catch {
+    /* No bootstrap: this build is served by something else. */
+    return [];
+  }
+}
+
+/**
  * Seed environments for a fresh install, read from VITE_ENVIRONMENTS so a team can
  * pre-provision without touching source. Anything malformed is ignored rather
  * than crashing the app on boot — a bad env var must not lock anyone out.
