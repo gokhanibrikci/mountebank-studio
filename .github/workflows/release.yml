@@ -48,7 +48,16 @@ jobs:
         with:
           # >= 22.14 is a trusted-publishing requirement, not a preference.
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
+          # NO registry-url, and that is the whole trick. Given one, setup-node
+          # writes an .npmrc with `_authToken=${NODE_AUTH_TOKEN}` and then exports
+          # NODE_AUTH_TOKEN as the literal placeholder XXXXX-XXXXX-XXXXX-XXXXX
+          # (src/authutil.ts, unchanged in v4 and v6 — main has since fixed it). npm
+          # then finds a credential it believes in, authenticates with that garbage
+          # instead of falling back to OIDC, and the registry answers 404: its way of
+          # saying "not authorised". Three runs failed on exactly this while the
+          # trusted publisher was configured correctly all along.
+          #
+          # Publishing needs no registry-url: registry.npmjs.org is the default.
 
       - name: Upgrade npm
         # Node 22 bundles npm 10, which cannot do the OIDC exchange.
@@ -85,7 +94,28 @@ jobs:
       - name: Build
         run: yarn build
 
+      - name: Nothing may shadow the OIDC exchange
+        # The failure this guards against is silent: a token that is present but
+        # worthless stops npm from ever trying OIDC, and the only symptom is a 404
+        # from the registry. Fail here instead, where the message says what is wrong.
+        run: |
+          set -euo pipefail
+          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::error::NODE_AUTH_TOKEN is set. npm will use it and skip OIDC."
+            exit 1
+          fi
+          configured=$(npm config get //registry.npmjs.org/:_authToken)
+          if [ "$configured" != "undefined" ] && [ -n "$configured" ]; then
+            echo "::error::an auth token is configured in npmrc. npm will use it and skip OIDC."
+            exit 1
+          fi
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "::error::no OIDC endpoint in the environment — is id-token: write still set?"
+            exit 1
+          fi
+          echo "no token to fall back on, and an OIDC endpoint is present"
+
       - name: Publish
-        # No NODE_AUTH_TOKEN: the OIDC token above is the credential. --provenance
-        # attaches the signed build statement shown on the package page.
+        # No NODE_AUTH_TOKEN: the OIDC token is the credential. --provenance attaches
+        # the signed build statement shown on the package page.
         run: npm publish --provenance
