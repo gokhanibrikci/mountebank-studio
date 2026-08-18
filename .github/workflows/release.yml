@@ -121,4 +121,7 @@ jobs:
       - name: Publish
         # No NODE_AUTH_TOKEN: the OIDC token is the credential. --provenance attaches
         # the signed build statement shown on the package page.
-        run: npm publish --provenance
+        # --loglevel verbose so the OIDC exchange is legible: at the default level a
+        # refusal prints as a bare ENEEDAUTH, which says nothing about which claim
+        # the registry disagreed with. Nothing secret is printed at this level.
+        run: npm publish --provenance --loglevel verbose
