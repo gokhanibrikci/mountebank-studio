@@ -30,6 +30,12 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # A tag is the normal trigger. Manual runs exist because a release can fail for
+  # reasons that have nothing to do with the commit — a registry-side setting, say —
+  # and moving a tag back and forth to retry is worse than a button. npm's trusted
+  # publisher is keyed on the repository and this filename, not on the event, so a
+  # manual run publishes under the same trust.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -70,8 +76,12 @@ jobs:
         # number that can never be reused: npm versions are immutable.
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME#v}"
           pkg=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
+            echo "manual run — publishing what package.json says: $pkg"
+            exit 0
+          fi
+          tag="${GITHUB_REF_NAME#v}"
           echo "tag $tag · package.json $pkg"
           [ "$tag" = "$pkg" ] || {
             echo "::error::tag v$tag does not match package.json $pkg"
