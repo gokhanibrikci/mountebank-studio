@@ -104,11 +104,14 @@ jobs:
             echo "::error::NODE_AUTH_TOKEN is set. npm will use it and skip OIDC."
             exit 1
           fi
-          configured=$(npm config get //registry.npmjs.org/:_authToken)
-          if [ "$configured" != "undefined" ] && [ -n "$configured" ]; then
-            echo "::error::an auth token is configured in npmrc. npm will use it and skip OIDC."
-            exit 1
-          fi
+          # Read the files, not `npm config get`: auth keys are protected and that
+          # command exits non-zero rather than printing them.
+          for rc in "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}" "$PWD/.npmrc"; do
+            if [ -f "$rc" ] && grep -q "_authToken" "$rc"; then
+              echo "::error::$rc configures an auth token. npm will use it and skip OIDC."
+              exit 1
+            fi
+          done
           if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
             echo "::error::no OIDC endpoint in the environment — is id-token: write still set?"
             exit 1
