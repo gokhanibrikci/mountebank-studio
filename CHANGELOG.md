@@ -1,7 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 — 18 August 2026
 
+- **`npx mountebank-studio` installs 24 MB instead of 44 MB.** React, React DOM,
+  axios, zustand, the router and React Query were listed as runtime dependencies,
+  but the browser bundle compiles them into `dist/` at publish time and nothing
+  reads them afterwards — `server/index.mjs` imports only Node's own modules. They
+  are development dependencies now, so the only thing installed alongside the panel
+  is Mountebank itself: 183 packages rather than 207. Measured, not assumed: the
+  tarball was installed into an empty directory and the panel served, wrote an
+  imposter and got an answer back with none of those packages present.
 - **Settings now says what the panel itself is** — a *This panel* block with its own
   version, its licence, a link to the source, and the line stating that this is an
   independent project. The version is there because the first question on any bug

@@ -1,0 +1,91 @@
+# Publishing, without a token anywhere.
+#
+# npm supports trusted publishing: this workflow proves its own identity to the
+# registry over OIDC, and the registry decides whether to trust it by comparing the
+# repository and THIS FILENAME against what the package has on record. So there is
+# no secret in this repository, nothing to leak and nothing to rotate — and the
+# published version carries provenance, a signed statement of which commit and
+# which workflow built it.
+#
+# Two consequences worth knowing before editing:
+#
+#  • RENAMING THIS FILE BREAKS PUBLISHING. The filename is part of what npm trusts.
+#    Rename it on npmjs.com first (Settings → Trusted publisher), then here.
+#
+#  • It requires npm >= 11.5.1 and Node >= 22.14. Node 22 ships npm 10, so npm is
+#    upgraded below on purpose rather than by accident.
+#
+# One-time setup on npmjs.com → the package → Settings → Trusted publisher:
+#     provider   GitHub Actions
+#     repository gokhanibrikci/mountebank-studio
+#     workflow   release.yml
+#
+# To release: bump the version in package.json, write the CHANGELOG entry, commit,
+# then push the matching tag:
+#
+#     git tag v0.1.1 && git push origin v0.1.1
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write # the OIDC token npm exchanges for publish rights
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # >= 22.14 is a trusted-publishing requirement, not a preference.
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm
+        # Node 22 bundles npm 10, which cannot do the OIDC exchange.
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: The tag has to name the version being published
+        # Otherwise a mistyped tag publishes something nobody asked for, under a
+        # number that can never be reused: npm versions are immutable.
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./package.json').version")
+          echo "tag $tag · package.json $pkg"
+          [ "$tag" = "$pkg" ] || {
+            echo "::error::tag v$tag does not match package.json $pkg"
+            exit 1
+          }
+
+      - name: Install
+        run: yarn install --frozen-lockfile
+
+      # The same gate as CI. A tag must not be a way around it.
+      - name: Types
+        run: yarn check:types
+
+      - name: Tests
+        run: yarn tests
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Build
+        run: yarn build
+
+      - name: Publish
+        # No NODE_AUTH_TOKEN: the OIDC token above is the credential. --provenance
+        # attaches the signed build statement shown on the package page.
+        run: npm publish --provenance

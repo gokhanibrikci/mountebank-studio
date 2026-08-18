@@ -55,6 +55,29 @@ the real `mountebank@2.9.1` package.
   Which stub answered a request is computed locally unless the instance runs with
   `--debug`, and every screen that shows it says so.
 
+## Releasing
+
+Versions on npm are immutable. `0.1.0` can never be republished with different
+contents, and a number that has been used cannot be reclaimed — so a release is a
+one-way door and the tag is what opens it.
+
+1. Bump `version` in `package.json`.
+2. Write the CHANGELOG entry.
+3. Commit, then push the matching tag:
+
+```bash
+git tag v0.1.1 && git push origin v0.1.1
+```
+
+[`release.yml`](.github/workflows/release.yml) refuses to continue if the tag and
+`package.json` disagree, runs the same four checks as CI, and publishes.
+
+There is no npm token in this repository. The workflow authenticates over OIDC —
+npm's trusted publishing — which the package has configured on npmjs.com against
+this repository and that filename, so **renaming the workflow file stops publishing
+working** until npmjs.com is updated to match. Each published version carries
+provenance: a signed statement of the commit and workflow that built it.
+
 ## Licence and contributions
 
 The project is Apache-2.0. By opening a pull request you agree that your contribution
