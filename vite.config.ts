@@ -1,5 +1,16 @@
+import { readFileSync } from 'node:fs';
+
 import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
+
+/**
+ * The panel's own version, read from package.json and frozen into the build.
+ *
+ * Settings shows it, because the first thing anyone reporting a bug is asked is
+ * which version they are on, and until now the panel could only answer for the
+ * mountebank it was pointed at — not for itself.
+ */
+const VERSION: string = JSON.parse(readFileSync('./package.json', 'utf8')).version;
 
 /**
  * Two ways to reach an instance, and the dev server supports both.
@@ -90,6 +101,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
     plugins: [react(), manifestPlugin(env)],
+    define: { __APP_VERSION__: JSON.stringify(VERSION) },
     server: { port: 5273, proxy: proxyFromEnv(env) },
     preview: { port: 5273, proxy: proxyFromEnv(env) },
     test: { include: ['src/**/*.test.ts'] },

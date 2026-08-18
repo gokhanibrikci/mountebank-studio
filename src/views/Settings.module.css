@@ -229,3 +229,25 @@
   color: var(--acc-2);
   overflow-wrap: anywhere;
 }
+
+/* ---------- this panel ----------
+   The same link as the welcome screen, and one closing paragraph. It sits under
+   the facts rather than in a note beside one, because it is about the whole
+   project and not about any single fact above it. */
+.link {
+  color: var(--acc);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--acc-hi);
+}
+
+.independence {
+  margin: 14px 0 0;
+  max-width: 78ch;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--tx-3);
+}

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Settings now says what the panel itself is** — a *This panel* block with its own
+  version, its licence, a link to the source, and the line stating that this is an
+  independent project. The version is there because the first question on any bug
+  report is which one you are running, and until now the panel could only answer for
+  the Mountebank it was pointed at.
+- **CI** — types, tests, lint and build on Node 20 and 22, plus a smoke test that
+  starts the published entry point and proves the panel is served, a write reaches the
+  instance through the forward, and the shipped defaults are still injection-off and
+  loopback-only.
+
 ## 0.1.0 — 18 August 2026
 
 The first release. A visual console for [Mountebank](https://www.mbtest.dev/): its

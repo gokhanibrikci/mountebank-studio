@@ -587,6 +587,57 @@ function Instance({ environment }: { environment: MbEnvironment }) {
         </div>
       </Section>
 
+      {/* ─────────────────────────  what this panel is  ─────────────────────
+          Its own version, because the first question on any bug report is which
+          one you are running, and until this block existed the panel could only
+          answer for the mountebank it was pointed at.
+
+          The independence line is the same sentence as NOTICE and the README,
+          deliberately word for word: the name describes what this connects to and
+          claims nothing more, and that should read the same wherever somebody
+          meets it. */}
+      <Section title="This panel" icon={<Icon name="code" />}>
+        <dl className={styles.facts}>
+          <div className={styles.fact}>
+            <dt>Version</dt>
+            <dd className="mono">mountebank-studio {__APP_VERSION__}</dd>
+          </div>
+          <div className={styles.fact}>
+            <dt>Licence</dt>
+            <dd>
+              <a
+                className={styles.link}
+                href="https://github.com/gokhanibrikci/mountebank-studio/blob/main/LICENSE"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Apache-2.0
+              </a>
+            </dd>
+          </div>
+          <div className={styles.fact}>
+            <dt>Source</dt>
+            <dd>
+              <a className={styles.link} href="https://github.com/gokhanibrikci/mountebank-studio" target="_blank" rel="noreferrer">
+                github.com/gokhanibrikci/mountebank-studio
+              </a>
+              <span className={styles.factNote}>
+                Issues and pull requests are welcome there.
+              </span>
+            </dd>
+          </div>
+        </dl>
+
+        <p className={styles.independence}>
+          An independent project. It is not affiliated with, endorsed by, or sponsored by the{' '}
+          <a className={styles.link} href="https://www.mbtest.dev" target="_blank" rel="noreferrer">
+            mountebank
+          </a>{' '}
+          project. Mountebank itself is MIT-licensed and is not redistributed here: this panel talks
+          to an instance you run.
+        </p>
+      </Section>
+
       <Modal
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
