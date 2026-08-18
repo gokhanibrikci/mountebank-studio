@@ -1,9 +1,28 @@
 # Mountebank Studio
 
-A visual control surface for [Mountebank](http://www.mbtest.org/). It talks to the
+A visual control surface for [Mountebank](https://www.mbtest.dev/). It talks to the
 admin API of any instance you point it at and gives you screens for the things you
 would otherwise hand-write as JSON: imposters, stubs, predicates, responses, proxy
 responses, behaviors, and the traffic each imposter has captured.
+
+![The workspace: what is running, how much of it answered, and the traffic it took](docs/overview.png)
+
+<details>
+<summary>Two more screens</summary>
+
+**One imposter and its stubs**, matched top to bottom, with the hit counts computed
+from the captured traffic. The third stub shows a negated header condition; the fourth
+carries a delay; the fifth breaks the connection instead of answering.
+
+![An imposter's stubs](docs/imposter.png)
+
+**The traffic**, with the stub that answered each request. Mountebank reports the
+matched stub only with `--debug`, so the panel evaluates the predicates itself and says
+so rather than implying the instance told it.
+
+![Captured requests and the stub that answered each one](docs/activity.png)
+
+</details>
 
 It is a shell, not a product for one team. It knows nothing about the service you
 are mocking. You add your own instances, and they live in your browser.
@@ -13,7 +32,7 @@ and how that was verified against the real package — is in
 [COVERAGE.md](COVERAGE.md).
 
 > **Unofficial.** Mountebank Studio is an independent project. It is not affiliated
-> with, endorsed by, or sponsored by the [mountebank](http://www.mbtest.org) project.
+> with, endorsed by, or sponsored by the [mountebank](https://www.mbtest.dev) project.
 > Mountebank itself is MIT-licensed and is not redistributed here: the panel talks to
 > an instance you run.
 

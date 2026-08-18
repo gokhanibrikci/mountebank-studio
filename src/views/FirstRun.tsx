@@ -344,8 +344,13 @@ export function FirstRun() {
         <p className={styles.copy}>
           Then add <span className="mono">http://localhost:2525</span> above. Mountebank&rsquo;s own
           documentation lives at{' '}
-          <a className={styles.link} href="http://www.mbtest.org/" target="_blank" rel="noreferrer">
-            mbtest.org
+          <a
+            className={styles.link}
+            href="https://www.mbtest.dev/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            mbtest.dev
           </a>
           .
         </p>
