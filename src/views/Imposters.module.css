@@ -1,0 +1,66 @@
+/* The row action buttons, the pills and the table itself are styled by the
+   primitives. What is left here is this screen's own furniture. */
+
+/* Wrapper for an empty or loading state inside a flush Card, matching the
+   prototype's `<div style="padding:16px">` around its empty block. */
+.pad {
+  padding: 16px;
+}
+
+/* A read-only environment explains itself once, at the top, instead of leaving
+   a row of dead buttons unexplained. */
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0 0 18px;
+  padding: 11px 14px;
+  border: 1px solid var(--warn-line);
+  border-radius: var(--r);
+  background: var(--warn-a);
+  color: var(--warn);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.note svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* The row is clickable, but the name is the real link — that is what gives the
+   list keyboard navigation without adding anything visible. */
+.name {
+  color: inherit;
+  text-decoration: none;
+}
+
+.name:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Modal confirmation copy: the prototype's inline
+   `font-size:var(--fs-sm); color:var(--tx-2)`. */
+.confirm {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--tx-2);
+}
+
+/* The trailing action column has a name for assistive tech but no visible
+   header, exactly as the prototype's empty `<th>` reads to the eye. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

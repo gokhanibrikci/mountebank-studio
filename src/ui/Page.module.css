@@ -1,0 +1,128 @@
+/* ---------- page head ---------- */
+.eyebrow {
+  font-family: var(--sans);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--acc);
+  margin-bottom: 8px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.head h1 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-h1);
+  font-weight: 700;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+  line-height: 1.14;
+  color: var(--tx);
+}
+
+.head p {
+  margin: 9px 0 0;
+  color: var(--tx-2);
+  font-size: var(--fs-base);
+  max-width: 62ch;
+}
+
+.meta {
+  margin-left: auto;
+  text-align: right;
+  font-size: var(--fs-sm);
+  color: var(--tx-3);
+  max-width: 34ch;
+  flex: none;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+.tools {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ---------- recap ---------- */
+.summary {
+  background: var(--surface-2);
+  border-radius: var(--r-lg);
+  padding: 17px 20px;
+  margin-bottom: 22px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--sans);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--acc);
+}
+
+.summary p {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--tx);
+}
+
+.summary b {
+  font-weight: 650;
+}
+
+/* ---------- empty state ---------- */
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--r-lg);
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--tx-2);
+  background: var(--surface);
+}
+
+.empty h3 {
+  margin: 0 0 7px;
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  color: var(--tx);
+  font-weight: 650;
+}
+
+.empty p {
+  margin: 0 auto 18px;
+  max-width: 46ch;
+  font-size: var(--fs-sm);
+}
+
+/* See EmptyState's `wide`: room for a sentence that explains itself. */
+.emptyWide p {
+  max-width: 84ch;
+}
+
+@media (max-width: 1080px) {
+  .head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .meta {
+    margin-left: 0;
+    text-align: left;
+  }
+}

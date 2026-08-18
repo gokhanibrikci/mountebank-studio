@@ -1,0 +1,51 @@
+/* ============================================================
+   Stub editor drawer.
+
+   The drawer, the two Sections and the two panels inside them all
+   carry their own chrome, so what is left here is only the
+   drawer-level furniture: the JSON view's lead line, the
+   in-sync / invalid pill, and the footer spacer that pushes
+   Cancel and Save away from Delete.
+   ============================================================ */
+
+.lead {
+  margin: 0 0 12px;
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--tx-2);
+}
+
+/* ---------- in sync / invalid ---------- */
+.sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  max-width: 38ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.syncOk {
+  color: var(--ok);
+}
+
+.syncBad {
+  color: var(--err);
+}
+
+/* ---------- footer ---------- */
+/* Destructive far left, confirming rightmost: this is the gap between. */
+.spacer {
+  margin-left: auto;
+}

@@ -1,0 +1,58 @@
+.seg {
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.btn {
+  border: 0;
+  background: transparent;
+  color: var(--tx-3);
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  gap: 6px;
+}
+
+.btn:hover {
+  color: var(--tx);
+}
+
+.btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex: none;
+}
+
+.btn[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--tx);
+  box-shadow: var(--shadow-sm);
+}
+
+.acc .btn[aria-pressed='true'] {
+  background: var(--acc);
+  color: #fff;
+}
+
+/* The environment switcher carries its own warning: when a shared environment is
+   selected the active pill turns amber, so the switch itself is the signal and no
+   second chip is needed beside it. */
+.warn button[aria-pressed='true'] {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: #fff;
+  box-shadow: none;
+}

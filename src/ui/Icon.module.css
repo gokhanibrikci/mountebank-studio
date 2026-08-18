@@ -1,0 +1,5 @@
+/* One icon standard: never shrink in a flex row, never carry its own colour. */
+.icon {
+  flex: none;
+  color: currentColor;
+}

@@ -1,0 +1,127 @@
+/* ============================================================
+   Add / edit an environment.
+
+   The modal body's padding and rhythm come from the Modal
+   primitive; this file is only the stack, the footer spacer that
+   pushes Cancel and Save away from Test, and the one block that
+   reports what the instance said.
+   ============================================================ */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Test is not a commitment, so it sits far left and the confirming
+   action stays the rightmost thing on the row. */
+.spacer {
+  margin-left: auto;
+}
+
+/* ---------- what the instance answered ---------- */
+
+.result {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  color: var(--tx-2);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.result svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.resultBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.resultBody b {
+  font-size: var(--fs-base);
+  font-weight: 650;
+  color: inherit;
+}
+
+.resultBody p {
+  margin: 0;
+  color: var(--tx-2);
+}
+
+.resultBody code {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+/* Only the outcome changes colour — the shape stays the same, so the
+   block does not jump as the answer arrives. */
+.quiet {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--tx-2);
+}
+
+.ok {
+  border-color: var(--ok-line);
+  background: var(--ok-a);
+  color: var(--ok);
+}
+
+.warn {
+  border-color: var(--warn-line);
+  background: var(--warn-a);
+  color: var(--warn);
+}
+
+.err {
+  border-color: var(--err-line);
+  background: var(--err-a);
+  color: var(--err);
+}
+
+/* ---------- the command to copy into a terminal ---------- */
+
+/* A path or a flag named inside a hint, on one line with the prose. */
+.inline {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--acc-a08);
+  color: var(--acc-2);
+  overflow-wrap: anywhere;
+}
+
+.cmd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--white);
+  min-width: 0;
+}
+
+.cmd code {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.cmd > :last-child {
+  margin-left: auto;
+  flex: none;
+}

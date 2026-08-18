@@ -1,0 +1,304 @@
+/* ============================================================
+   First run, and the shell-less frame it shares with Settings
+   when no environment exists yet.
+
+   `.solo` stands in for the whole app shell: without an
+   environment there is no rail, no topbar and nothing to scroll
+   inside, so this owns the viewport height and the scrolling that
+   src/styles/app.module.css normally provides.
+
+   Every colour and size resolves to a token.
+   ============================================================ */
+
+.solo {
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+/* The shell's measure, so Settings looks the same here as it does
+   inside the rail once an environment exists. */
+.wrap {
+  max-width: 1180px;
+  padding: 46px 26px 80px;
+  margin: 0 auto;
+}
+
+/* ---------- prose ---------- */
+.copy {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--tx-2);
+  max-width: 74ch;
+}
+
+.copy code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--acc);
+}
+
+/* ---------- how a mock is put together ----------
+   A numbered list, numbered by CSS rather than by the browser's default marker so
+   the counter can be an accent disc that lines up with the text block. */
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.steps li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 34px;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--tx-2);
+  max-width: 88ch;
+}
+
+.steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--acc-a14);
+  color: var(--acc-2);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.steps b {
+  color: var(--tx);
+  font-weight: 650;
+}
+
+/* ---------- what the panel does ----------
+   Six short claims, each one a thing the product actually has. A grid so they are
+   read as a set rather than as a paragraph broken into pieces. */
+.feats {
+  display: grid;
+  /* Six items, so three columns fill two rows exactly — a wider minimum here
+     lands on three at the shell's measure instead of four-then-two. */
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.feat {
+  padding: 13px 15px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  background: var(--surface-hi);
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 9px;
+}
+
+.feat svg {
+  grid-row: span 2;
+  margin-top: 2px;
+  color: var(--acc);
+}
+
+.feat b {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--tx);
+}
+
+.feat span {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--tx-3);
+}
+
+/* ---------- a command block, for the one command that starts an instance ---- */
+.cmdBlock {
+  margin: 0;
+  padding: 13px 15px;
+  border-radius: var(--r);
+  background: var(--ed-bg);
+  border: 1px solid var(--ed-line);
+  overflow-x: auto;
+  --sb-thumb: var(--ed-scroll-thumb);
+  --sb-thumb-hi: var(--ed-scroll-thumb-hi);
+  --sb-ground: var(--ed-bg);
+}
+
+.cmdBlock code {
+  font-family: var(--mono);
+  font-size: var(--fs-base);
+  color: var(--ed-tx);
+  white-space: pre;
+}
+
+.link {
+  color: var(--acc);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--acc-hi);
+}
+
+/* ---------- the environments added so far ----------
+   The same row as Settings, because it is the same list — one is just met before
+   the shell exists and the other inside it. The radio picks which environment
+   Start opens, not which one is "current": there is no current one yet. */
+.envs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.env {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-hi);
+}
+
+.env:hover {
+  border-color: var(--line-input);
+}
+
+.envOn {
+  border-color: var(--acc-a30);
+  background: var(--acc-a08);
+}
+
+/* Only this half selects; the buttons beside it must not. */
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.radio {
+  accent-color: var(--acc);
+  width: 16px;
+  height: 16px;
+  flex: none;
+  cursor: pointer;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+
+.envName {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+  margin-right: auto;
+}
+
+.envName b {
+  font-size: var(--fs-base);
+  font-weight: 650;
+  color: var(--tx);
+}
+
+.envName span {
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note {
+  font-size: var(--fs-xs);
+  color: var(--warn);
+}
+
+.envActs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+/* ---------- into the panel ----------
+   Start is the last thing on the section and sits at its right edge, where every
+   other primary action in this product sits. */
+.startBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 15px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.startNote {
+  margin: 0 auto 0 0;
+  font-size: var(--fs-sm);
+  color: var(--tx-3);
+  max-width: 62ch;
+}
+
+/* ---------- the command that allows this page ----------
+   Inline, inside the strip's sentence: the command IS the point being made, so
+   lifting it into a block of its own only broke the sentence in half. */
+.cmd {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--acc-a08);
+  color: var(--acc-2);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1080px) {
+  .wrap {
+    padding: 30px 18px 70px;
+  }
+}
+
+/* The frame stops being a viewport-height scroller and becomes a page. */
+@media print {
+  .solo {
+    height: auto;
+    overflow: visible;
+  }
+
+  .cmd {
+    background: var(--print-bg);
+    color: var(--print-ink);
+  }
+
+  .cmdBlock {
+    background: var(--print-bg);
+    border-color: var(--print-line);
+  }
+
+  .cmdBlock code {
+    color: var(--print-ink);
+  }
+}

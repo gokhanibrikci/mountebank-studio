@@ -1,0 +1,215 @@
+/* ============================================================
+   Overview — the workspace at a glance.
+
+   Only the blocks this screen adds on top of the primitive
+   library live here: the four stat tiles and the activity feed.
+   The status strips are the shared `Strip` primitive and carry
+   their own styles, so nothing about them is repeated here.
+
+   Every colour, font size and radius resolves to a token in
+   src/styles/tokens.css. Paddings and gaps follow the same
+   convention as the ui/ modules: raw px, because the token file
+   deliberately carries no spacing scale.
+   ============================================================ */
+
+/* ---------- stat tiles ---------- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 13px;
+  margin-bottom: 22px;
+}
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.statV {
+  font-family: var(--sans);
+  font-size: var(--fs-stat);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--tx);
+}
+
+.statL {
+  margin-top: 4px;
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+}
+
+.statMeta {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* a number we do not have yet reads as absent, not as zero */
+.dim {
+  color: var(--tx-3);
+}
+
+/* ---------- activity feed ---------- */
+
+/* The card body pads 18px; the rows pad 12px of their own, so the
+   feed pulls back to land on the prototype's 6px. */
+.feed {
+  display: flex;
+  flex-direction: column;
+  margin: -12px 0;
+}
+
+.ev {
+  display: grid;
+  grid-template-columns: 16px 84px minmax(0, 1fr) auto;
+  gap: 13px;
+  align-items: baseline;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.ev:last-child {
+  border-bottom: 0;
+}
+
+.evDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+  background: var(--tx-3);
+}
+
+.lvlOk {
+  background: var(--ok);
+}
+
+.lvlInfo {
+  background: var(--info);
+}
+
+.lvlWarn {
+  background: var(--warn);
+}
+
+.lvlErr {
+  background: var(--err);
+}
+
+/* The dot carries the level as colour, so the word ships too — for
+   screen readers only, since sighted readers have the sentence. */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.evTime {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.evMsg {
+  min-width: 0;
+  font-size: var(--fs-base);
+  color: var(--tx-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evMsg b {
+  color: var(--tx);
+  font-weight: 650;
+}
+
+.evMsg code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--acc);
+}
+
+.evSrc {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  white-space: nowrap;
+}
+
+.feedEmpty {
+  padding: 20px 0;
+  text-align: center;
+  color: var(--tx-2);
+  font-size: var(--fs-sm);
+}
+
+.feedEmpty p {
+  margin: 0;
+}
+
+/* Where the panel says out loud that the feed is its own session
+   and not history Mountebank kept. */
+.footnote {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+}
+
+/* ---------- table trimmings ---------- */
+.gap {
+  margin-bottom: 18px;
+}
+
+/* Keyboard route into a row that is otherwise only clickable. */
+.impLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.impLink:hover {
+  text-decoration: underline;
+}
+
+.modalNote {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+}
+
+@media (max-width: 1080px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .ev {
+    grid-template-columns: 16px 72px minmax(0, 1fr);
+  }
+
+  .evSrc {
+    grid-column: 3;
+  }
+}

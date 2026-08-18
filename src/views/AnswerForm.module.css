@@ -1,0 +1,138 @@
+/* ============================================================
+   The "then answer" side.
+
+   One answer is a bare stack of fields — no card, no border, no
+   ordinal. A second answer turns the stack into a numbered step
+   of a cycle, and only then does a rule appear above it.
+
+   Every size and colour here comes from tokens.css.
+   ============================================================ */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-width: 0;
+}
+
+/* the one sentence that explains the cycle, or the empty case */
+.lead {
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  color: var(--tx-2);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ---------- one answer ---------- */
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-width: 0;
+}
+
+/* a member of a cycle: separated by a rule rather than by another
+   bordered surface, so the form never nests */
+
+.numbered:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+/* ---------- static reply ---------- */
+
+/* a short field and the thing that reads it: the status name, or a unit */
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* the one width a number field needs: four digits and their spinner */
+.short {
+  flex: 0 0 96px;
+  width: 96px;
+}
+
+.unit {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+}
+
+.kvLine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 32px;
+  gap: 9px;
+  align-items: center;
+}
+
+.selfStart {
+  align-self: flex-start;
+}
+
+/* ---------- forwarding ---------- */
+.switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 18px;
+  align-items: center;
+}
+
+/* ---------- steps ---------- */
+.step {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr) 32px;
+  gap: 9px;
+  align-items: center;
+}
+
+.menuWrap {
+  position: relative;
+  align-self: flex-start;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 5;
+  min-width: 218px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+
+.menuItem {
+  justify-content: flex-start;
+  width: 100%;
+  text-align: left;
+}
+
+/* ---------- adding one ---------- */
+
+@media (max-width: 1080px) {
+  .kvLine,
+  .step {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Why a fault shows no behaviour rows. */
+.faultNote {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--tx-3);
+  max-width: 74ch;
+}

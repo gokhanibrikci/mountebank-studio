@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Mountebank Studio">
+  <!--
+    The sidebar brand mark (.mark in Sidebar.module.css): a forest tile carrying
+    three ascending sage bars, the third held back.
+
+    Same colours as the app's tokens — --side-2 ground, --side-line edge,
+    --sage-hi bars — but the bars are widened from 3/2 to 4/3 units and the
+    height steps pushed apart, because at a 16px tab the CSS proportions blur
+    into one block. The tile brings its own ground, so it reads on light and
+    dark browser chrome alike.
+  -->
+  <rect x="0.5" y="0.5" width="31" height="31" rx="8" fill="#2A4A39" stroke="#2E5040" />
+  <g fill="#A9CE8C">
+    <rect x="7" y="15" width="4" height="10" rx="1.5" />
+    <rect x="14" y="7" width="4" height="18" rx="1.5" />
+    <rect x="21" y="11" width="4" height="14" rx="1.5" opacity="0.6" />
+  </g>
+</svg>

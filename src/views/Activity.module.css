@@ -1,0 +1,139 @@
+/* ============================================================
+   Requests — the traffic table, its filter bar and the live
+   progress lines that admit when the log is still incomplete.
+
+   Every size, colour and radius comes from src/styles/tokens.css.
+   ============================================================ */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+/* ---------- the path cell ----------
+   A real button so every row is operable from the keyboard, painted to
+   read as the plain mono text the reference shows. */
+.path {
+  display: block;
+  max-width: 400px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--fs-base);
+  color: var(--tx);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.path:hover {
+  color: var(--acc);
+}
+
+/* ---------- the matched-stub cell ---------- */
+.matched {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.stubPath {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-2);
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--tx-3);
+}
+
+/* ---------- states ----------
+   The standing explanation of the screen is a shared <Strip tone="info">, so it
+   carries no styles here. What is left is the live progress and failure copy. */
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+/* The failure and its retry: a column. The sentence takes the card's full width —
+   the same measure as the strip above it — and the action sits at the bottom right,
+   where every other card in the product puts its button. */
+.errBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+/* The sentence is one flex item; anything inside it wraps as ordinary text. */
+.errState > span,
+.state > span {
+  min-width: 0;
+}
+
+.errActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.state,
+.errState {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.state {
+  color: var(--tx-2);
+}
+
+.errState {
+  color: var(--err);
+}
+
+.state svg,
+.errState svg {
+  margin-top: 2px;
+}
+
+.hint {
+  margin: 10px 0 14px;
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .path {
+    max-width: 220px;
+  }
+
+  .stubPath {
+    max-width: 120px;
+  }
+}

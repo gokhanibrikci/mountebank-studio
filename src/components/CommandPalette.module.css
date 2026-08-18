@@ -1,0 +1,160 @@
+/* ============================================================
+   Command palette.
+
+   Ported from the prototype's `.palette` block. It paints its own
+   scrim from the same `--scrim` token the drawer and modal share,
+   at the same z-index band, so the palette dims the app exactly as
+   every other overlay does.
+   ============================================================ */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(1.5px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+  z-index: 54;
+}
+
+.scrimOn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.palette {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: start center;
+  padding-top: 11vh;
+  pointer-events: none;
+}
+
+.on {
+  pointer-events: auto;
+}
+
+.panel {
+  width: min(620px, 94vw);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.985);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+}
+
+.on .panel {
+  opacity: 1;
+  transform: none;
+}
+
+.input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 17px 20px;
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  color: var(--tx);
+  border-bottom: 1px solid var(--line);
+}
+
+.input::placeholder {
+  color: var(--tx-3);
+}
+
+.input:focus {
+  outline: none;
+}
+
+.list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* ---------- one result ---------- */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  color: var(--tx-2);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+}
+
+.row svg {
+  color: var(--tx-3);
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row[aria-selected='true'] {
+  background: var(--acc);
+  color: var(--white);
+}
+
+.row[aria-selected='true'] svg {
+  color: var(--sage-hi);
+}
+
+.k {
+  margin-left: auto;
+  padding-left: 12px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46%;
+  flex: none;
+}
+
+.row[aria-selected='true'] .k {
+  color: var(--sage-hi);
+}
+
+/* ---------- empty and in-flight states ---------- */
+.note {
+  margin: 0;
+  padding: 14px;
+  color: var(--tx-3);
+  font-size: var(--fs-sm);
+}
+
+.foot {
+  margin: 0;
+  padding: 11px 16px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--surface-2);
+  color: var(--tx-3);
+  font-size: var(--fs-xs);
+}
+
+@media print {
+  .scrim,
+  .palette {
+    display: none !important;
+  }
+}

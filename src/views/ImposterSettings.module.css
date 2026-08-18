@@ -1,0 +1,61 @@
+/* ============================================================
+   Imposter settings — the prototype's form grids and the
+   danger-zone row. Sections come from ui/Panels (.sec), fields
+   from ui/Controls; only the layout lives here.
+   ============================================================ */
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+.note {
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+}
+
+.hint {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  line-height: 1.5;
+}
+
+/* a value that will not be accepted — same terracotta as ui/Chips' Off */
+.bad {
+  color: var(--err);
+  font-weight: 650;
+}
+
+/* the save bar sits with the form, not floating over it */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 1080px) {
+  .grid2,
+  .grid3 {
+    grid-template-columns: 1fr;
+  }
+}

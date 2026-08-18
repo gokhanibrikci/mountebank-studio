@@ -1,0 +1,188 @@
+{
+    "imposters": [
+        {
+            "protocol": "http",
+            "port": 4545,
+            "name": "orders-service",
+            "defaultResponse": {
+                "statusCode": 501,
+                "headers": {
+                    "Content-Type": "application/json"
+                },
+                "body": {
+                    "success": false,
+                    "errorCode": 501,
+                    "message": "No stub covers this endpoint yet",
+                    "data": null,
+                    "traceId": "trace-default"
+                }
+            },
+            "recordRequests": false,
+            "stubs": [
+                {
+                    "predicates": [
+                        {
+                            "equals": {
+                                "method": "GET",
+                                "path": "/demo"
+                            }
+                        }
+                    ],
+                    "responses": [
+                        {
+                            "is": {
+                                "statusCode": 200,
+                                "body": "Hello Mountebank"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "predicates": [
+                        {
+                            "startsWith": {
+                                "path": "/v1/"
+                            }
+                        },
+                        {
+                            "not": {
+                                "and": [
+                                    {
+                                        "equals": {
+                                            "query": {
+                                                "region": "north"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "equals": {
+                                            "query": {
+                                                "channel": "web"
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "responses": [
+                        {
+                            "is": {
+                                "statusCode": 400,
+                                "headers": {
+                                    "Content-Type": "application/json"
+                                },
+                                "body": {
+                                    "success": false,
+                                    "errorCode": 400,
+                                    "message": "Missing or invalid required query params (expected region=north, channel=web)",
+                                    "data": null,
+                                    "traceId": "trace-query-guard"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "predicates": [
+                        {
+                            "startsWith": {
+                                "path": "/v1/"
+                            }
+                        },
+                        {
+                            "not": {
+                                "equals": {
+                                    "headers": {
+                                        "X-Api-Version": "2024-01"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "responses": [
+                        {
+                            "is": {
+                                "statusCode": 400,
+                                "headers": {
+                                    "Content-Type": "application/json",
+                                    "X-Supported-Versions": "2024-01"
+                                },
+                                "body": {
+                                    "success": false,
+                                    "errorCode": 400,
+                                    "message": "Unsupported or missing X-Api-Version",
+                                    "data": null,
+                                    "traceId": "trace-version-guard"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "predicates": [
+                        {
+                            "equals": {
+                                "method": "POST",
+                                "path": "/v1/orders"
+                            }
+                        }
+                    ],
+                    "responses": [
+                        {
+                            "inject": "function (config) {\n  var state = config.state;\n\n  if (!state.orders) {\n    state.seq = 1000;\n    state.orders = {};\n  }\n\n  var wrap = function (status, obj) {\n    return { statusCode: status, headers: { 'Content-Type': 'application/json' },\n             body: JSON.stringify(obj) };\n  };\n\n  var req = JSON.parse(config.request.body || '{}');\n\n  if (!req.customerRef || !req.lines || !req.lines.length) {\n    return wrap(422, { success: false, errorCode: 422,\n      message: 'customerRef and at least one line are required',\n      data: null, traceId: 'trace-orders-invalid' });\n  }\n\n  state.seq += 1;\n  var total = 0;\n  for (var i = 0; i < req.lines.length; i += 1) {\n    total += (req.lines[i].unitPrice || 0) * (req.lines[i].quantity || 0);\n  }\n\n  var order = {\n    orderRef: 'ORD-' + state.seq,\n    customerRef: req.customerRef,\n    status: 'PLACED',\n    currency: req.currency || 'EUR',\n    lineCount: req.lines.length,\n    total: Math.round(total * 100) / 100,\n    placedAt: new Date().toISOString().replace(/\\.\\d+Z$/, 'Z'),\n    cancelledAt: null\n  };\n  state.orders[order.orderRef] = order;\n\n  config.logger.info('placed ' + order.orderRef + ' for ' + order.customerRef);\n\n  return wrap(201, { success: true, errorCode: null, message: null,\n                     data: order, traceId: 'trace-orders-placed' });\n}"
+                        }
+                    ]
+                },
+                {
+                    "predicates": [
+                        {
+                            "equals": {
+                                "method": "POST",
+                                "path": "/v1/orders/cancel"
+                            }
+                        }
+                    ],
+                    "responses": [
+                        {
+                            "inject": "function (config) {\n  var state = config.state;\n\n  if (!state.orders) {\n    state.seq = 1000;\n    state.orders = {};\n  }\n\n  var wrap = function (status, obj) {\n    return { statusCode: status, headers: { 'Content-Type': 'application/json' },\n             body: JSON.stringify(obj) };\n  };\n\n  var CANCELLABLE = { PLACED: true, PICKING: true };\n  var req = JSON.parse(config.request.body || '{}');\n  var order = state.orders[req.orderRef];\n\n  if (!order) {\n    return wrap(404, { success: false, errorCode: 404,\n      message: 'Order not found. orderRef=' + req.orderRef,\n      data: null, traceId: 'trace-cancel-not-found' });\n  }\n\n  if (!CANCELLABLE[order.status]) {\n    return wrap(409, { success: false, errorCode: 409,\n      message: 'Order is no longer cancellable',\n      data: { orderRef: order.orderRef, status: order.status },\n      traceId: 'trace-cancel-too-late' });\n  }\n\n  order.status = 'CANCELLED';\n  order.cancelledAt = new Date().toISOString().replace(/\\.\\d+Z$/, 'Z');\n\n  return wrap(200, { success: true, errorCode: null, message: null,\n                     data: order, traceId: 'trace-cancel-done' });\n}"
+                        }
+                    ]
+                },
+                {
+                    "predicates": [
+                        {
+                            "equals": {
+                                "method": "GET",
+                                "path": "/v1/orders/summary"
+                            }
+                        }
+                    ],
+                    "responses": [
+                        {
+                            "is": {
+                                "statusCode": 200,
+                                "headers": {
+                                    "Content-Type": "application/json"
+                                },
+                                "body": {
+                                    "success": true,
+                                    "errorCode": null,
+                                    "message": null,
+                                    "data": {
+                                        "openOrders": 3,
+                                        "cancelledToday": 1,
+                                        "currency": "EUR",
+                                        "openValue": 412.5,
+                                        "oldestOpenRef": "ORD-1001"
+                                    },
+                                    "traceId": "trace-orders-summary"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,96 @@
+/* ---------- pill ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  background: var(--surface-2);
+  color: var(--tx-2);
+  border: 1px solid var(--line);
+}
+
+.ok {
+  background: var(--ok-a);
+  color: var(--ok);
+  border-color: var(--ok-line);
+}
+
+.warn {
+  background: var(--warn-a);
+  color: var(--warn);
+  border-color: var(--warn-line);
+}
+
+.err {
+  background: var(--err-a);
+  color: var(--err);
+  border-color: var(--err-line);
+}
+
+.acc {
+  background: var(--acc-a08);
+  color: var(--acc);
+  border-color: var(--acc-a30);
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* ---------- verb ---------- */
+.verb {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--tx-2);
+}
+
+.get {
+  background: var(--info-a);
+  color: var(--info);
+}
+
+.post {
+  background: var(--ok-a);
+  color: var(--ok);
+}
+
+.put,
+.patch {
+  background: var(--warn-a);
+  color: var(--warn);
+}
+
+.del {
+  background: var(--err-a);
+  color: var(--err);
+}
+
+.any {
+  background: var(--acc-a08);
+  color: var(--acc);
+}
+
+/* ---------- out-of-target value ---------- */
+.off {
+  color: var(--err);
+  font-weight: 650;
+}
+
+.off::after {
+  content: ' ⚠';
+  font-size: 0.85em;
+}

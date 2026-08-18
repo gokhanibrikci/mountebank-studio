@@ -1,0 +1,149 @@
+/* ============================================================
+   Imposter detail — the tab strip, the tools cluster and the
+   two states (loading, failed) the screen can be in before its
+   data arrives.
+   ============================================================ */
+
+.tabs {
+  display: flex;
+  gap: 3px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.tab {
+  border: 0;
+  background: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--tx-3);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--tx);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--acc);
+  border-bottom-color: var(--acc);
+}
+
+.count {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  margin-left: 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tab[aria-selected='true'] .count {
+  color: var(--acc);
+}
+
+/* the confirmation sentence inside the delete modal */
+.note {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+}
+
+/* ---------- in-flight and failed ---------- */
+.state {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  color: var(--tx-2);
+}
+
+.fail {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--err);
+  margin: 0 0 14px;
+  overflow-wrap: anywhere;
+}
+
+/* a pulse rather than a spinner: nothing here jumps while loading */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--acc);
+  flex: none;
+  animation: pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---------- request rows ---------- */
+
+/* the one standing note about everything in the table that is inferred */
+.computed {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0 0 12px;
+  padding: 11px 13px;
+  border-radius: var(--r);
+  background: var(--warn-a);
+  border: 1px solid var(--warn-line);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--tx-2);
+}
+
+.computed svg {
+  color: var(--warn);
+  margin-top: 1px;
+}
+
+.path {
+  max-width: 420px;
+}
+
+.stubRef {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-2);
+  max-width: 220px;
+}
+
+.matched {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--tx-3);
+}
+
+@media (max-width: 1080px) {
+  .path {
+    max-width: 220px;
+  }
+}

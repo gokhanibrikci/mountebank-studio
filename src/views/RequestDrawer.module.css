@@ -1,0 +1,182 @@
+/* ============================================================
+   Request detail — the meta strip, the matched-stub card and the
+   honesty notes around the derived response.
+
+   Every size, colour and radius comes from src/styles/tokens.css.
+   ============================================================ */
+
+/* ---------- meta strip ----------
+   One hairline grid: the gap IS the rule, painted by the container's
+   own background, so no cell needs a border of its own. */
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.meta {
+  background: var(--surface);
+  padding: 12px 15px;
+}
+
+.meta :global(.lbl) {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.metaValue {
+  font-family: var(--mono);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--tx);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- the matched stub card ----------
+   A real <button>, so it is reachable and operable from the keyboard;
+   its children are spans for the same reason. */
+.stub {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: stretch;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  color: inherit;
+  width: 100%;
+  font: inherit;
+  box-shadow: var(--shadow-sm);
+}
+
+.stub:hover {
+  border-color: var(--acc-a30);
+  background: var(--white);
+}
+
+.stubOrd {
+  border-right: 1px solid var(--line-soft);
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  background: var(--surface-2);
+  border-radius: var(--r-lg) 0 0 var(--r-lg);
+}
+
+.stubMain {
+  padding: 15px 17px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.stubSig {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.stubPath {
+  font-family: var(--mono);
+  font-size: var(--fs-base);
+  font-weight: 550;
+  color: var(--tx);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger {
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr);
+  gap: 6px 12px;
+  align-items: baseline;
+}
+
+.ledgerValue {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.stubAside {
+  padding: 15px 17px;
+  border-left: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 9px;
+  white-space: nowrap;
+}
+
+/* ---------- notes ---------- */
+.hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  line-height: 1.5;
+}
+
+.hint em {
+  font-style: italic;
+  color: var(--tx-2);
+}
+
+.warnLine,
+.errLine {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.warnLine {
+  color: var(--warn);
+}
+
+.errLine {
+  color: var(--err);
+}
+
+/* the glyph must sit on the first line of text, not centre on the block */
+.warnLine svg,
+.errLine svg {
+  margin-top: 2px;
+}
+
+/* ---------- header / query tables ---------- */
+.kvKey {
+  width: 38%;
+  color: var(--tx-2);
+  overflow-wrap: anywhere;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  .stub {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .stubAside {
+    display: none;
+  }
+}

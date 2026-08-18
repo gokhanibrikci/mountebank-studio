@@ -1,0 +1,270 @@
+@import './tokens.css';
+
+/* ============================================================
+   Mountebank Studio — global base layer.
+
+   Everything here is deliberately global: resets, the painted
+   ground, focus, scrollbars, print, motion. Component styling
+   lives in CSS Modules next to each component.
+
+   TWO CONVENTIONS, because CSS Modules hash their class names and
+   a global sheet cannot see them. Each rule below is written twice:
+   once against the prototype's literal class name (still valid for
+   anything rendered with a global className), and once against an
+   inheritable custom property that a component module can set on
+   its own scoped class. Component modules should prefer the
+   property — it survives hashing.
+
+     --focus        outline colour for :focus-visible in a subtree
+     --icon         icon edge length in a subtree
+     --sb-thumb     scrollbar thumb colour for a scroll container
+     --sb-thumb-hi  ...its hover colour
+     --sb-ground    the ground the thumb's inset border is painted with
+   ============================================================ */
+
+/* ---------- reset ---------- */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  /* the shell owns the viewport; only .content scrolls */
+  overflow: hidden;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--tx);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--acc-a30);
+}
+
+/* ---------- focus ---------- */
+:focus-visible {
+  outline: 2px solid var(--focus, var(--acc));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* The accent ring disappears on the forest grounds — swap it there.
+   Forest subtrees may equivalently set `--focus: var(--sage-hi)`. */
+.side :focus-visible,
+.ed__bar :focus-visible,
+.toast :focus-visible {
+  outline-color: var(--sage-hi);
+}
+
+/* ---------- scrollbars, one rule driven by three regions ----------
+   Region 1 — content, on the bone ground (the default below).
+   Region 2 — the sidebar rail, on forest.
+   Region 3 — the JSON editor, on forest black.
+   The thumb carries an inset border painted with its own region's
+   ground, which is what makes the track read as a gutter and not
+   as a second bar. */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb, var(--scroll-thumb));
+  border: 3px solid var(--sb-ground, var(--bg));
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sb-thumb-hi, var(--scroll-thumb-hi));
+}
+
+/* region 2 — sidebar */
+.side__scroll {
+  --sb-thumb: var(--side-scroll-thumb);
+  --sb-thumb-hi: var(--side-scroll-thumb-hi);
+  --sb-ground: var(--side);
+}
+
+.side__scroll::-webkit-scrollbar-thumb {
+  background: var(--side-scroll-thumb);
+  border-color: var(--side);
+}
+
+.side__scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--side-scroll-thumb-hi);
+}
+
+/* region 3 — code editor */
+.ed__scroll {
+  --sb-thumb: var(--ed-scroll-thumb);
+  --sb-thumb-hi: var(--ed-scroll-thumb-hi);
+  --sb-ground: var(--ed-bg);
+}
+
+.ed__scroll::-webkit-scrollbar-thumb {
+  background: var(--ed-scroll-thumb);
+  border-color: var(--ed-bg);
+}
+
+.ed__scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--ed-scroll-thumb-hi);
+}
+
+/* ---------- one icon standard, enforced here so call sites cannot drift ----------
+   No component ever passes a size to an icon. Context decides:
+   16px is the standard, 18 in the rail, 17 for row actions, 14 in
+   small buttons. A subtree that needs another size sets `--icon`. */
+svg {
+  flex: none;
+  width: var(--icon, 16px);
+  height: var(--icon, 16px);
+}
+
+.nav svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn svg,
+.seg button svg,
+.pres svg,
+.sec__head svg,
+.searchbtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn--sm svg {
+  width: 14px;
+  height: 14px;
+}
+
+.row-acts svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* ---------- shared type helpers ----------
+   Global on purpose: these are the same three or four declarations
+   in a dozen places, and duplicating them per module invites drift. */
+.mono {
+  font-family: var(--mono);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.lbl {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+}
+
+.eyebrow {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--acc);
+  margin-bottom: 8px;
+}
+
+/* ---------- level ----------
+   Simple mode hides advanced affordances entirely, rather than
+   disabling them: a control you cannot use should not be there. */
+body[data-mode='simple'] [data-adv] {
+  display: none !important;
+}
+
+/* ---------- print ----------
+   Chrome goes away, the forest grounds become paper, and syntax
+   colour collapses to a single ink so a printed stub is readable. */
+@media print {
+  .side,
+  .topbar,
+  .toasts,
+  .scrim,
+  .row-acts {
+    display: none !important;
+  }
+
+  .app {
+    display: block;
+    height: auto;
+  }
+
+  .content {
+    overflow: visible;
+  }
+
+  .card,
+  .sec,
+  .stub,
+  .stat {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .ed {
+    background: var(--print-bg);
+    border-color: var(--print-line);
+  }
+
+  .ed__bar {
+    background: var(--print-bar);
+    border-color: var(--print-bar-line);
+  }
+
+  .ed__lang {
+    color: var(--print-ink-2);
+  }
+
+  .ed__pre {
+    color: var(--print-ink);
+  }
+
+  .ed__scroll {
+    height: auto !important;
+  }
+
+  .tk-key,
+  .tk-str,
+  .tk-num,
+  .tk-bool,
+  .tk-punc,
+  .tk-kw,
+  .tk-com,
+  .tk-fn {
+    color: var(--print-ink);
+  }
+}
+
+/* ---------- motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

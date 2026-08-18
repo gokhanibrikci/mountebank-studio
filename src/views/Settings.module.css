@@ -1,0 +1,231 @@
+/* ============================================================
+   Settings.
+
+   Three blocks, in order of what you can do with them: the one
+   setting the panel keeps, then facts read off the instance, then
+   actions that run against it. Every row is label · one line of
+   explanation · control, so the screen can be scanned for "what can
+   I change" without reading prose.
+   ============================================================ */
+
+/* ---------- the environment picker ---------- */
+
+.envs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.env {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-hi);
+  cursor: pointer;
+}
+
+.env:hover {
+  border-color: var(--line-input);
+}
+
+.envOn {
+  border-color: var(--acc-a30);
+  background: var(--acc-a08);
+}
+
+/* The clickable half of the row. Only this selects the environment, so the Edit
+   and Remove buttons beside it are not part of the label. */
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.radio {
+  accent-color: var(--acc);
+  width: 16px;
+  height: 16px;
+  flex: none;
+  cursor: pointer;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+
+.envName {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+  /* The name pushes anything after it to the right. A :last-child rule here put
+     the name itself on the right whenever a row had no read-only pill. */
+  margin-right: auto;
+}
+
+.envName b {
+  font-size: var(--fs-base);
+  font-weight: 650;
+  color: var(--tx);
+}
+
+.envName span {
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The environment's own caution, kept in the row rather than in a tooltip. */
+.note {
+  font-size: var(--fs-xs);
+  color: var(--warn);
+}
+
+/* Row actions sit at the far right, after the name has claimed the space. */
+.envActs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+/* ---------- facts read off the instance ---------- */
+
+.facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 14px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.fact:last-child {
+  border-bottom: 0;
+}
+
+.fact dt {
+  font-size: var(--fs-sm);
+  color: var(--tx-3);
+}
+
+.factNote {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+}
+
+.fact dd {
+  margin: 0;
+  font-size: var(--fs-base);
+  color: var(--tx);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- action rows ---------- */
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.row:first-child {
+  padding-top: 0;
+}
+
+.row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowText b {
+  font-size: var(--fs-base);
+  font-weight: 650;
+  color: var(--tx);
+}
+
+.rowText span {
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+}
+
+.rowText code {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--acc);
+}
+
+.row > :last-child {
+  margin-left: auto;
+  flex: none;
+}
+
+/* ---------- states ---------- */
+
+.quiet {
+  margin: 0;
+  font-size: var(--fs-base);
+  color: var(--tx-2);
+}
+
+@media (max-width: 1080px) {
+  .fact {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .row > :last-child {
+    margin-left: 0;
+  }
+}
+
+/* An inline command inside prose — code ground, but on one line. */
+.cmd {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--acc-a08);
+  color: var(--acc-2);
+  overflow-wrap: anywhere;
+}

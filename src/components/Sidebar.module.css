@@ -1,0 +1,376 @@
+/* ============================================================
+   The forest rail.
+
+   Ported from the prototype's `.side` block. Two things ride along
+   as global class names on the elements themselves (`side`,
+   `side__scroll`) because base.css targets them for the forest
+   focus ring, the rail's own scrollbar colours and print — a
+   hashed module class cannot be seen from a global sheet.
+
+   Every colour, size and radius resolves to a token.
+   ============================================================ */
+
+.side {
+  height: 100vh;
+  overflow: hidden;
+  background: var(--side);
+  color: var(--side-tx);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+  /* the accent focus ring vanishes on forest — swap it for sage */
+  --focus: var(--sage-hi);
+}
+
+/* ---------- brand ---------- */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 19px 18px 20px;
+  text-decoration: none;
+  border-radius: var(--r);
+}
+
+.brand:hover .brandTxt {
+  color: #fff;
+}
+
+.mark {
+  width: 29px;
+  height: 29px;
+  border-radius: 8px;
+  flex: none;
+  background: var(--side-2);
+  border: 1px solid var(--side-line);
+  display: grid;
+  place-items: center;
+}
+
+.mark span {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.mark i {
+  display: block;
+  width: 3px;
+  border-radius: 1px;
+  background: var(--sage-hi);
+}
+
+.mark i:nth-child(1) {
+  height: 8px;
+}
+
+.mark i:nth-child(2) {
+  height: 14px;
+}
+
+.mark i:nth-child(3) {
+  height: 11px;
+  opacity: 0.6;
+}
+
+.brandTxt {
+  font-family: var(--sans);
+  font-size: var(--fs-brand);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  color: var(--side-tx);
+}
+
+.brandTxt em {
+  font-style: normal;
+  color: var(--sage-hi);
+}
+
+/* ---------- nav ---------- */
+.group {
+  padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--side-tx);
+  cursor: pointer;
+  text-decoration: none;
+
+  /* the rail is the one place icons are 18px */
+  --icon: 18px;
+}
+
+.nav:hover {
+  background: var(--side-2);
+}
+
+.nav[aria-current='page'] {
+  background: var(--side-2);
+}
+
+.navTxt {
+  min-width: 0;
+  flex: 1;
+}
+
+.navTxt b {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.navTxt span {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--side-tx-2);
+  margin-top: 1px;
+}
+
+.nav[aria-current='page'] .navTxt b {
+  color: var(--white);
+}
+
+.nav svg {
+  color: var(--side-tx-3);
+}
+
+.nav[aria-current='page'] svg {
+  color: var(--sage-hi);
+}
+
+.navCount {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--side-tx-3);
+  flex: none;
+}
+
+/* ---------- the imposter quick-list ---------- */
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 10px;
+}
+
+.sec {
+  padding: 20px 19px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sec :global(.lbl) {
+  color: var(--side-tx-2);
+}
+
+/* the rail's ghost buttons sit on forest, not on bone */
+.side :global(.btn--ghost) {
+  color: var(--side-tx-2);
+}
+
+.side :global(.btn--ghost):hover {
+  background: var(--side-2);
+  color: var(--side-tx);
+}
+
+.impLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 11px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  color: var(--side-tx-2);
+  text-decoration: none;
+}
+
+.impLink:hover,
+.impLink[aria-current='page'] {
+  background: var(--side-2);
+  color: var(--side-tx);
+}
+
+.impDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--sage-hi);
+}
+
+.impName {
+  font-size: var(--fs-sm);
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impPort {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--side-tx-3);
+}
+
+/* loading / error / empty line inside the quick-list */
+.note {
+  margin: 0;
+  padding: 4px 19px;
+  font-size: var(--fs-xs);
+  color: var(--side-tx-3);
+}
+
+/* ---------- connections card ---------- */
+.srcs {
+  /* Pinned to the bottom of the rail: the nav sits at the top, this fills the gap
+     and stays put, so "where am I pointed" is always in the same place. */
+  /* top:auto is what pushes it down — a later `margin` shorthand would undo it */
+  margin: auto 10px 12px;
+  padding: 15px 16px 13px;
+  border-radius: var(--r-lg);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--side-line);
+}
+
+.srcs > :global(.lbl) {
+  color: var(--side-tx-2);
+  display: block;
+  margin-bottom: 12px;
+}
+
+.src {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 5px 0;
+}
+
+.srcDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  margin-top: 6px;
+}
+
+/* health, and only ever health we can prove: amber until a query answers */
+.ok {
+  background: var(--sage-hi);
+}
+
+.warn {
+  background: var(--toast-warn);
+}
+
+.err {
+  background: var(--toast-err);
+}
+
+.srcTxt b {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--side-tx);
+}
+
+.srcTxt span {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--side-tx-2);
+  font-family: var(--mono);
+}
+
+.srcsFoot {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--side-line);
+  font-size: var(--fs-xs);
+  color: var(--side-tx-2);
+}
+
+/* A statement, not a control: it wraps to as many lines as it needs. */
+.footNote {
+  display: block;
+  line-height: 1.5;
+}
+
+/* ---------- settings, last in the rail ---------- */
+
+/* ---------- collapsed rail ----------
+   Below 1080px the rail keeps its icons and withdraws every label,
+   count and card, so the shell's 68px column is all it needs. */
+@media (max-width: 1080px) {
+  .brandTxt,
+  .srcs,
+  .sec,
+  .impName,
+  .impPort,
+  .navTxt span,
+  .navCount {
+    display: none;
+  }
+
+  .brand {
+    justify-content: center;
+    padding: 19px 0 20px;
+  }
+
+  .nav {
+    justify-content: center;
+    gap: 0;
+    padding: 11px 0;
+  }
+
+  .navTxt {
+    display: none;
+  }
+
+  .impLink {
+    justify-content: center;
+    padding: 9px 0;
+  }
+
+  .note {
+    display: none;
+  }
+
+  /* the rail has no footer block any more — Settings is a nav row and the
+     Connections card is withdrawn entirely at this width */
+  .group {
+    margin-bottom: auto;
+  }
+}
+
+@media print {
+  .side {
+    display: none !important;
+  }
+}
+
+/* A signature, not a status line — quiet and out of the way. */
+.sign {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--side-tx-3);
+  letter-spacing: 0.02em;
+}

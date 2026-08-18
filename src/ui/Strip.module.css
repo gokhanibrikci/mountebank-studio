@@ -1,0 +1,90 @@
+/* ============================================================
+   Strip — one line of context above a screen's content.
+
+   Two jobs it must keep apart:
+     tone="info"  a standing explanation of the screen (always true)
+     tone="warn"  something about the current state you should know
+     tone="err"   something is broken and there is an action next to it
+   The neutral and info tones must never look alarming, or the amber
+   staging warning stops standing out.
+   ============================================================ */
+
+.strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding: 13px 17px;
+  border-radius: var(--r-lg);
+  line-height: 1.55;
+  color: var(--tx-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  /* Same step as PageHead's `sub`, whose job this block took over — one step down
+     is what made the explanation read smaller after the rebuild. */
+  font-size: var(--fs-base);
+}
+
+/* Inside a container that already spaces its children. */
+.flush {
+  margin-bottom: 0;
+}
+
+.strip svg {
+  margin-top: 2px;
+  color: var(--tx-3);
+}
+
+.info svg {
+  color: var(--acc);
+}
+
+.warn {
+  background: var(--warn-a);
+  border-color: var(--warn-line);
+}
+
+.warn svg {
+  color: var(--warn);
+}
+
+.err {
+  background: var(--err-a);
+  border-color: var(--err-line);
+}
+
+.err svg {
+  color: var(--err);
+}
+
+.body {
+  min-width: 0;
+}
+
+/* Only the strip's own title is a block — a <b> inside the paragraph is emphasis
+   and must stay in the flow of the sentence. */
+.body > b {
+  display: block;
+  color: var(--tx);
+  font-weight: 650;
+}
+
+.body p b {
+  color: var(--tx);
+  font-weight: 650;
+}
+
+.body p {
+  margin: 3px 0 0;
+}
+
+.body code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--acc);
+}
+
+.acts {
+  margin-left: auto;
+  flex: none;
+}

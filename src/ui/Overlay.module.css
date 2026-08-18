@@ -1,0 +1,185 @@
+/* ---------- the single shared scrim ---------- */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 33, 27, 0.34);
+  backdrop-filter: blur(1.5px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+  z-index: 40;
+}
+
+.scrimOn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------- drawer ---------- */
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(1120px, 96vw);
+  z-index: 41;
+  background: var(--bg);
+  border-left: 1px solid var(--line);
+  box-shadow: -24px 0 60px -20px rgba(23, 33, 27, 0.28);
+  transform: translateX(102%);
+  transition: transform 0.22s cubic-bezier(0.22, 0.7, 0.25, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.drawerOn {
+  transform: none;
+}
+
+.head {
+  flex: none;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.title {
+  min-width: 0;
+}
+
+.title h2 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-lg);
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  color: var(--tx);
+}
+
+.title p {
+  margin: 3px 0 0;
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  font-family: var(--mono);
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.foot {
+  flex: none;
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ---------- modal ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: start center;
+  padding: 9vh 16px 16px;
+  pointer-events: none;
+  /* a tall form must never push its own footer out of reach */
+  overflow: hidden;
+}
+
+.modalOn {
+  pointer-events: auto;
+}
+
+.panel {
+  width: min(580px, 94vw);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(-8px) scale(0.99);
+  transition:
+    opacity 0.16s,
+    transform 0.16s;
+  /* Bounded by the viewport, and a column so .mbody can be the scroller. */
+  max-height: calc(100vh - 9vh - 32px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.modalOn .panel {
+  opacity: 1;
+  transform: none;
+}
+
+.mhead {
+  padding: 20px 24px 0;
+}
+
+.mhead h2 {
+  margin: 0 0 5px;
+  font-family: var(--sans);
+  font-size: var(--fs-lg);
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  color: var(--tx);
+}
+
+.mhead p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+}
+
+.mbody {
+  padding: 19px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  /* the head and the footer stay put; only this scrolls */
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.mfoot {
+  padding: 15px 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* One rule for every footer in the product: anything destructive sits far left,
+   the confirming action is the rightmost thing on the row. */
+.dfoot > :global(.spacer) {
+  margin-left: auto;
+}
+
+@media print {
+  .scrim,
+  .drawer,
+  .modal {
+    display: none !important;
+  }
+}

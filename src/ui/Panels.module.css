@@ -1,0 +1,82 @@
+/* ---------- card ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.cardHead {
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cardHead h2 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--tx);
+}
+
+.cardBody {
+  padding: 18px;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+/* ---------- section (.sec) ---------- */
+.sec {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.secHead {
+  padding: 14px 17px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.secHead h3 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--tx);
+}
+
+/* The head's OWN icon, and only that one: a descendant selector here also
+   repainted the icon inside a button in the head, which made the accent-green
+   plus invisible on a primary (accent-green) button. */
+.secHead > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--acc);
+}
+
+.secBody {
+  padding: 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media print {
+  .card,
+  .sec {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}

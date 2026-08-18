@@ -1,0 +1,151 @@
+/* ============================================================
+   Mountebank Studio — design tokens.
+
+   Deep forest chrome on a warm bone ground. One committed visual
+   world: every colour is painted explicitly, so nothing inherits a
+   browser default and nothing drifts between screens.
+
+   This file is the ONLY place a raw hex colour, a font-size, a
+   radius or a font stack may be written. Every component module
+   reads from here.
+
+   TYPE SCALE — nine steps, and every size in the app comes from
+   one of them. No ad-hoc font-size values anywhere else.
+     micro 10     uppercase labels, eyebrows, kbd
+     xs    11.5   mono meta, hints, counts, chips
+     sm    12.5   buttons, secondary text, form labels
+     base  13.5   default UI and table text, inputs, code
+     md    15     card and section headings
+     lg    18     drawer and modal titles
+     brand 17     wordmark
+     stat  28     single big numbers
+     h1    32     page titles
+   ICON SIZE is governed by CSS per context (see base.css), never
+   by call sites, so an icon can never arrive at the wrong size.
+   ============================================================ */
+
+:root {
+  /* ---- content surfaces — warm bone, slight green bias ---- */
+  --bg: #f4f2ec;
+  --surface: #fcfbf7;
+  /* One step ABOVE the panel ground, for a row that has to lift off it. */
+  --surface-hi: #fff;
+  --surface-2: #edebe3;
+  --surface-3: #e4e2d8;
+  --line: #dedbd0;
+  --line-soft: #e7e4da;
+
+  /* ---- content ink ---- */
+  --tx: #17211b;
+  --tx-2: #566159;
+  --tx-3: #5c665f; /* 5.00:1 on --surface-2, 5.33 on --bg, 5.76 on --surface */
+  --line-input: #828983; /* 3.19:1 on #fff — the 3:1 floor for control boundaries */
+
+  /* ---- forest chrome — the sidebar and code surfaces ---- */
+  --side: #1e3a2e;
+  --side-2: #2a4a39;
+  --side-3: #4a6e58;
+  --side-line: #2e5040;
+  --side-tx: #f1efe7;
+  --side-tx-2: #9fb8a8;
+  --side-tx-3: #89a394;
+
+  /* ---- accent — forest green, spent only on state and primary action ---- */
+  --acc: #3c6b4e;
+  --acc-2: #2f5a41;
+  --acc-hi: #4e8460;
+  --sage-hi: #a9ce8c; /* the focus ring and caret on forest grounds */
+  --acc-a08: rgba(60, 107, 78, 0.08);
+  --acc-a14: rgba(60, 107, 78, 0.14);
+  --acc-a30: rgba(60, 107, 78, 0.3);
+
+  /* ---- semantics — kept clear of the brand green except for "healthy" ---- */
+  --ok: #336b47;
+  --ok-a: rgba(59, 122, 82, 0.11);
+  --ok-line: rgba(59, 122, 82, 0.26);
+  --warn: #7d5a1c;
+  --warn-a: rgba(198, 148, 58, 0.16);
+  --warn-line: rgba(198, 148, 58, 0.36);
+  --err: #a0461f;
+  --err-a: rgba(169, 79, 40, 0.1);
+  --err-line: rgba(169, 79, 40, 0.26);
+  --info: #356380;
+  --info-a: rgba(53, 99, 128, 0.1);
+
+  /* ---- code surfaces — forest black, tied to the sidebar ---- */
+  --ed-bg: #16261d;
+  --ed-bar: #1e3a2e;
+  --ed-line: #2c4b3a;
+  --ed-tx: #d7e0d8;
+
+  /* ---- families ---- */
+  --sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --mono:
+    ui-monospace, 'SF Mono', 'JetBrains Mono', 'Menlo', 'Cascadia Mono', 'Roboto Mono', monospace;
+
+  /* ---- the type scale (see the header comment for what each step is for) ---- */
+  --fs-micro: 10px;
+  --fs-xs: 11.5px;
+  --fs-sm: 12.5px;
+  --fs-base: 13.5px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-brand: 17px;
+  --fs-stat: 28px;
+  --fs-h1: 32px;
+
+  /* ---- radii and elevation ---- */
+  --r-sm: 6px;
+  --r: 9px;
+  --r-lg: 13px;
+  --shadow: 0 1px 2px rgba(23, 33, 27, 0.05), 0 18px 40px -14px rgba(23, 33, 27, 0.22);
+  --shadow-sm: 0 1px 2px rgba(23, 33, 27, 0.06);
+
+  /* ============================================================
+     Derived tokens. The prototype painted these inline; they live
+     here so rule "no raw hex outside tokens.css" holds everywhere.
+     Values are byte-for-byte the prototype's.
+     ============================================================ */
+
+  /* pure white — inputs, primary-button ink, the hover lift on cards */
+  --white: #ffffff;
+
+  /* scrollbars, per region. The thumb border is painted with the
+     region's own ground so the track reads as inset, not as a bar. */
+  --scroll-thumb: #a8a49a;
+  --scroll-thumb-hi: #8e8a7f;
+  --side-scroll-thumb: var(--side-3);
+  --side-scroll-thumb-hi: #5c8269;
+  --ed-scroll-thumb: #4e7761;
+  --ed-scroll-thumb-hi: #5f8b72;
+
+  /* syntax tokens for the JSON editor, tuned against --ed-bg */
+  --tk-key: #a9ce8c;
+  --tk-str: #e4c98c;
+  --tk-num: #e39c72;
+  --tk-bool: #8cbccb;
+  --tk-punc: #7c9887;
+  --tk-kw: #c7a0ce;
+  --tk-com: #7b9384;
+  --tk-fn: #8cb8d8;
+  --sage-a28: rgba(169, 206, 140, 0.28); /* text selection inside the editor */
+
+  /* toast status dots — brighter than the semantic inks, which are
+     tuned for the bone ground and go muddy on forest */
+  --toast-warn: #e0b45f;
+  --toast-err: #e09873;
+
+  /* overlays */
+  --scrim: rgba(23, 33, 27, 0.34);
+  --shadow-drawer: -24px 0 60px -20px rgba(23, 33, 27, 0.28);
+
+  /* print — the forest grounds become paper, syntax collapses to ink */
+  --print-bg: #ffffff;
+  --print-ink: #111111;
+  --print-ink-2: #555555;
+  --print-line: #999999;
+  --print-bar: #f2f2f2;
+  --print-bar-line: #cccccc;
+}

@@ -1,0 +1,103 @@
+.scroll {
+  overflow-x: auto;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tbl th {
+  text-align: left;
+  padding: 12px 16px;
+  font-family: var(--sans);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.tbl td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+  font-size: var(--fs-base);
+  color: var(--tx);
+}
+
+.tbl tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* ---------- cell helpers, written by call sites as global classes ---------- */
+.tbl tbody tr:global(.click) {
+  cursor: pointer;
+}
+
+.tbl tbody tr:global(.click):hover {
+  background: var(--surface-2);
+}
+
+.tbl :global(.cell-sub) {
+  color: var(--tx-3);
+  font-size: var(--fs-xs);
+}
+
+.tbl :global(.cell-clip) {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  max-width: 100%;
+}
+
+.tbl :global(.imp-name) {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.tbl :global(.imp-name) b {
+  font-weight: 650;
+  font-size: var(--fs-base);
+}
+
+/* row actions stay legible at rest — they must never disappear */
+.tbl :global(.row-acts) {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.tbl :global(.row-acts) :global(.btn) {
+  color: var(--tx-3);
+}
+
+.tbl :global(.row-acts) :global(.btn):hover {
+  color: var(--tx);
+  background: var(--surface-2);
+}
+
+.tbl :global(.row-acts) :global(.btn--danger) {
+  color: var(--tx-3);
+}
+
+.tbl :global(.row-acts) :global(.btn--danger):hover {
+  color: var(--err);
+  background: var(--err-a);
+}
+
+.tbl :global(.row-acts) svg {
+  width: 17px;
+  height: 17px;
+}
+
+@media print {
+  .tbl :global(.row-acts) {
+    display: none !important;
+  }
+}

@@ -1,0 +1,107 @@
+/* ============================================================
+   App shell — the frame every screen is poured into.
+
+   Two columns for the whole viewport height: a fixed 252px forest
+   rail and one flexible content column that owns its own scrolling.
+   The page never scrolls; .content does. That is what keeps the
+   topbar and the rail fixed without a single `position: fixed`.
+
+   Sizes, colours and radii come from src/styles/tokens.css.
+   ============================================================ */
+
+.app {
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  height: 100vh;
+  /* Without this the rail's own content pushes past the viewport and the whole
+     PAGE scrolls, which drags the topbar and the Settings item out of sight. */
+  overflow: hidden;
+}
+
+/* min-width/min-height:0 so a wide table or a long path inside the
+   content column cannot push the grid wider than the viewport. */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+/* The bar spans the shell so its border does, but its CONTENTS sit on the same
+   measure as `.wrap` below — see Topbar.module.css `.row`. Anything else leaves the
+   breadcrumb and the search misaligned with the page they belong to. */
+.topbar {
+  height: 62px;
+  flex: none;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* One measure for every screen. The bottom padding is generous so
+   the last row of a long list clears the fold and never looks cut. */
+.wrap {
+  max-width: 1180px;
+  padding: 30px 26px 80px;
+  margin: 0 auto;
+}
+
+/* ---------- collapsed rail ----------
+   Below 1080px the rail keeps its icons and withdraws every label,
+   count and card. The shell's share of that change is here; the
+   rail's own withdrawal (.brand__txt, .srcs, .side__sec,
+   .imp-link__name, .imp-link__port, .nav__txt, .nav__count,
+   .side__foot), the topbar's search collapse (.searchbtn) and the
+   content-level reflows (.stats, .grid2, .grid3, .prow, .kvrow,
+   .bh, .page-head, .page-meta) live in those components' own
+   modules, at this same breakpoint. */
+@media (max-width: 1080px) {
+  .app {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+
+  .wrap {
+    padding: 24px 18px 70px;
+  }
+
+  .topbar {
+    padding: 0;
+  }
+}
+
+/* ---------- print ----------
+   The shell stops being a viewport-height grid and becomes a page:
+   the rail and topbar drop out, and .content gives up its scroll so
+   the whole document prints instead of one screenful. */
+@media print {
+  .app {
+    display: block;
+    height: auto;
+  }
+
+  .app > aside {
+    display: none !important;
+  }
+
+  .topbar {
+    display: none !important;
+  }
+
+  .content {
+    overflow: visible;
+  }
+
+  .wrap {
+    max-width: none;
+    padding: 0;
+  }
+}

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Two icons on purpose.
+
+      The SVG is the real one, and it lives at a NAMED url rather than
+      /favicon.svg: Chrome caches a favicon per origin and will not refetch the
+      same path on a reload, so replacing a file in place leaves the old icon on
+      the tab.
+
+      The .ico is the fallback that actually stops "there is no favicon". A
+      browser asks for /favicon.ico whether or not a link tag mentions it, and it
+      is what bookmark bars, history entries and older Chrome states use. Without
+      it that request 404s and some surfaces show nothing at all.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/brand-mark.svg" />
+    <link rel="icon" type="image/x-icon" sizes="32x32" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mountebank Studio</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

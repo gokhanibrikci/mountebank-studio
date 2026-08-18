@@ -1,0 +1,38 @@
+{
+  "name": "mountebank-studio",
+  "private": true,
+  "version": "0.0.0",
+  "description": "A visual console for Mountebank: imposters, stubs, responses and captured traffic, without hand-writing JSON.",
+  "license": "Apache-2.0",
+  "author": "G\u00f6khan \u0130brik\u00e7i <gokhanibrikci@gmail.com>",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "check:types": "tsc --noEmit -p tsconfig.app.json",
+    "tests": "vitest run",
+    "test:watch": "vitest",
+    "lint": "oxlint",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{ts,json,md}\""
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.101.4",
+    "axios": "^1.19.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "oxlint": "^1.75.0",
+    "prettier": "^3.9.6",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}

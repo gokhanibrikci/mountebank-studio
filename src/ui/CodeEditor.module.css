@@ -1,0 +1,180 @@
+/*
+  Forest-ground code editor. The syntax palette is read from tokens.css when it
+  provides one; the fallbacks are the prototype's own values, so this component
+  is complete on its own.
+*/
+.ed {
+  position: relative;
+  border: 1px solid var(--ed-line);
+  border-radius: var(--r);
+  background: var(--ed-bg);
+  overflow: hidden;
+}
+
+.ed:focus-within {
+  border-color: var(--acc-hi);
+  box-shadow: 0 0 0 3px var(--acc-a14);
+}
+
+/* ---------- bar ---------- */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+  background: var(--ed-bar);
+  border-bottom: 1px solid var(--ed-line);
+}
+
+.lang {
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  color: var(--side-tx-3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+/* buttons handed in as `toolbar` sit on the forest ground */
+.bar :global(.btn) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--ed-line);
+  color: var(--side-tx);
+  box-shadow: none;
+}
+
+.bar :global(.btn):hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--side-tx-3);
+}
+
+.bar :focus-visible {
+  outline-color: var(--sage-hi);
+}
+
+/* ---------- the two stacked layers ---------- */
+.scroll {
+  position: relative;
+  height: var(--ed-h, 220px);
+  overflow: auto;
+}
+
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--ed-scroll, #4e7761);
+  border: 3px solid var(--ed-bg);
+  border-radius: 8px;
+}
+
+.scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--ed-scroll-hi, #5f8b72);
+}
+
+.stack {
+  position: relative;
+  min-height: 100%;
+}
+
+/* identical box metrics on both layers — this is what keeps them aligned */
+.pre,
+.ta {
+  margin: 0;
+  padding: 13px 15px;
+  font-family: var(--mono);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 2;
+  border: 0;
+}
+
+.pre {
+  color: var(--ed-tx);
+  pointer-events: none;
+  min-height: 100%;
+}
+
+.ta {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  resize: none;
+  color: transparent;
+  caret-color: var(--sage-hi);
+  overflow: hidden;
+}
+
+.ta:focus {
+  outline: none;
+}
+
+.ta::selection {
+  background: rgba(169, 206, 140, 0.28);
+  color: transparent;
+}
+
+/* ---------- syntax tokens (class names produced by highlight.ts) ---------- */
+.pre :global(.tk-key) {
+  color: var(--sage-hi);
+}
+.pre :global(.tk-str) {
+  color: var(--tk-str, #e4c98c);
+}
+.pre :global(.tk-num) {
+  color: var(--tk-num, #e39c72);
+}
+.pre :global(.tk-bool) {
+  color: var(--tk-bool, #8cbccb);
+}
+.pre :global(.tk-punc) {
+  color: var(--tk-punc, #7c9887);
+}
+.pre :global(.tk-kw) {
+  color: var(--tk-kw, #c7a0ce);
+}
+.pre :global(.tk-com) {
+  color: var(--tk-com, #7b9384);
+  font-style: italic;
+}
+.pre :global(.tk-fn) {
+  color: var(--tk-fn, #8cb8d8);
+}
+
+/*
+  Print: the forest ground would soak a page in ink, so the editor flattens to
+  paper. Values mirror the prototype's print block; they defer to tokens.css if
+  it chooses to own them.
+*/
+@media print {
+  .ed {
+    background: #fff;
+    border-color: var(--print-line, #999);
+  }
+  .bar {
+    background: var(--print-bar, #f2f2f2);
+    border-color: var(--print-line-soft, #ccc);
+  }
+  .lang {
+    color: var(--print-tx-2, #555);
+  }
+  .scroll {
+    height: auto;
+  }
+  .pre {
+    color: var(--print-ink, #111);
+  }
+  .pre :global(.tk-key),
+  .pre :global(.tk-str),
+  .pre :global(.tk-num),
+  .pre :global(.tk-bool),
+  .pre :global(.tk-punc),
+  .pre :global(.tk-kw),
+  .pre :global(.tk-com),
+  .pre :global(.tk-fn) {
+    color: var(--print-ink, #111);
+  }
+}

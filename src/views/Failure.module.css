@@ -1,0 +1,20 @@
+/* The command that fixes a blocked origin, inline in the sentence that names it.
+   Same chip as the welcome screen and Settings, so the fix always looks the same. */
+/*
+ * The command wraps like text rather than staying on one line. `nowrap` was tried and
+ * was worse: inside the flex row of a failure block the chip could not fit, so it was
+ * clipped at the card's edge and grew its own scrollbar. A command that breaks across
+ * two lines is still readable; one that is cut off is not.
+ *
+ * The sentence deliberately ends WITH the command — a full stop after it was left
+ * orphaned on a line of its own.
+ */
+.cmd {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--acc-a08);
+  color: var(--acc-2);
+  overflow-wrap: anywhere;
+}

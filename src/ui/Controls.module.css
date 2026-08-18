@@ -1,0 +1,88 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field > label {
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--tx-2);
+}
+
+.hint {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  line-height: 1.5;
+}
+
+.inp,
+.sel,
+.ta {
+  background: #fff;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-sm);
+  padding: 9px 11px;
+  color: var(--tx);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  width: 100%;
+  min-width: 0;
+}
+
+.inp:hover,
+.sel:hover,
+.ta:hover {
+  border-color: var(--line-input);
+}
+
+.inp:focus,
+.sel:focus,
+.ta:focus {
+  outline: none;
+  border-color: var(--acc);
+  box-shadow: 0 0 0 3px var(--acc-a14);
+}
+
+.inp::placeholder,
+.ta::placeholder {
+  color: var(--tx-3);
+}
+
+.mono,
+.ta {
+  font-family: var(--mono);
+}
+
+.sel {
+  appearance: none;
+  padding-right: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--tx-3) 50%),
+    linear-gradient(135deg, var(--tx-3) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 52%,
+    calc(100% - 12px) 52%;
+  background-size:
+    4px 4px,
+    4px 4px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.ta {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.55;
+}
+
+.inp[disabled],
+.sel[disabled],
+.ta[disabled] {
+  background: var(--surface-2);
+  color: var(--tx-3);
+  cursor: not-allowed;
+}

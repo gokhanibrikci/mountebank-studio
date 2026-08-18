@@ -1,0 +1,19 @@
+/* The modal body's own padding comes from the Modal primitive; this is only
+   the stack rhythm and the two-up row, both lifted from the prototype. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+@media (max-width: 620px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}

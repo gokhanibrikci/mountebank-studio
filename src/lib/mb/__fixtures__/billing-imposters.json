@@ -1,0 +1,30 @@
+{
+    "imposters": [
+        {
+            "protocol": "http",
+            "port": 4546,
+            "name": "billing-service",
+            "recordRequests": false,
+            "stubs": [
+                {
+                    "predicates": [
+                        {
+                            "equals": {
+                                "method": "GET",
+                                "path": "/demo"
+                            }
+                        }
+                    ],
+                    "responses": [
+                        {
+                            "is": {
+                                "statusCode": 200,
+                                "body": "Hello Mountebank"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

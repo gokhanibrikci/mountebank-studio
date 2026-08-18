@@ -1,0 +1,258 @@
+/* ============================================================
+   Request match form — the "when" side of a stub.
+
+   The old query builder needed boxes to show nesting. This form
+   has none: it is a stack of plain blocks separated by a single
+   hairline, in the order a request itself arrives — method and
+   path first, then query, headers, body. No card inside a card,
+   because this whole form already sits inside one Section.
+
+   Every colour and size is a token from src/styles/tokens.css.
+   The only px values here are layout metrics (gaps, column
+   widths), never type or colour.
+   ============================================================ */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ---------- standing explanation ---------- */
+.lead {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--tx-2);
+}
+
+/* ---------- one block per part of the request ---------- */
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* A hairline is the whole separation device — the blocks read as one form. */
+.block + .block {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 16px;
+}
+
+.block > h4 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+}
+
+.hint,
+.note {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--tx-3);
+}
+
+.bad {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--err);
+}
+
+.bad svg {
+  color: var(--err);
+  margin-top: 1px;
+}
+
+/* ---------- method and path: the request line ---------- */
+.reqLine {
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.methodRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.methodSel {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pathRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.pathMode {
+  flex: 0 0 168px;
+}
+
+.pathInput {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------- key/value lines ---------- */
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr) 36px;
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+}
+
+/* The value and its type control share one cell, so the type never
+   drifts away from the value it governs. It wraps below on narrow
+   widths rather than squeezing the input. */
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.cellInput {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.add {
+  display: flex;
+}
+
+/* ---------- the value type: mountebank compares by type ---------- */
+.gate {
+  /* A disabled fieldset is what disables a segmented control, so it
+     carries no chrome of its own. */
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.gate[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.types {
+  flex: none;
+}
+
+/* Beside a value the segmented control is meta, not a primary control:
+   tighter and one type step down. */
+.types button {
+  padding: 4px 8px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.suggest {
+  flex: none;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  border: 1px solid var(--acc-a30);
+  background: var(--acc-a08);
+  color: var(--acc);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.suggest:hover:not([disabled]) {
+  background: var(--acc-a14);
+}
+
+.suggest[disabled] {
+  cursor: not-allowed;
+}
+
+/* ---------- rules the plain form cannot say ---------- */
+.extras {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.extra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+.extra svg {
+  color: var(--tx-3);
+}
+
+.extraText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-2);
+}
+
+/* ---------- narrow: the grids collapse rather than crush ---------- */
+@media (max-width: 1080px) {
+  .reqLine {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kv {
+    grid-template-columns: minmax(0, 1fr) 36px;
+  }
+
+  /* the key takes its own full-width line above the value */
+  .kv > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .pathRow {
+    flex-wrap: wrap;
+  }
+
+  .pathMode {
+    flex: 1 1 140px;
+  }
+}

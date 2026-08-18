@@ -1,0 +1,47 @@
+/* ============================================================
+   The JSON tab: a header row that states the direction of the
+   flow, a validity readout, and the editor.
+   ============================================================ */
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 11px;
+  flex-wrap: wrap;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+/* the validity readout — the prototype's `.sync` */
+.sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+}
+
+.sync svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.bad {
+  color: var(--err);
+}
+
+.note {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  margin: 11px 0 0;
+  line-height: 1.5;
+}

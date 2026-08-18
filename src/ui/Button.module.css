@@ -1,0 +1,88 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--tx);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  /* the label's line box must hug its glyphs, or the text rides above the icon */
+  line-height: 1;
+  justify-content: center;
+}
+
+.btn:hover:not([disabled]) {
+  background: var(--surface-2);
+  border-color: var(--line-input);
+}
+
+/* icon size is governed here, never by call sites */
+.btn svg {
+  width: 16px;
+  height: 16px;
+  /* A button's icon is the button's own colour. Stated explicitly so no
+     surrounding block can repaint it — a head or a card that colours its icons
+     by descendant would otherwise hide a white icon on a filled button. */
+  color: currentColor;
+  /* an inline svg would sit on the text baseline instead of the optical centre */
+  display: block;
+  flex: none;
+}
+
+.pri {
+  background: var(--acc);
+  border-color: var(--acc-2);
+  color: #fff;
+}
+
+.pri:hover:not([disabled]) {
+  background: var(--acc-2);
+  border-color: var(--acc-2);
+}
+
+.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--tx-2);
+  box-shadow: none;
+}
+
+.ghost:hover:not([disabled]) {
+  background: var(--surface-2);
+  color: var(--tx);
+  border-color: transparent;
+}
+
+.danger {
+  color: var(--err);
+}
+
+.danger:hover:not([disabled]) {
+  background: var(--err-a);
+  border-color: var(--err-line);
+}
+
+.sm {
+  padding: 6px 10px;
+}
+
+.sm svg {
+  width: 14px;
+  height: 14px;
+}
+
+.iconOnly {
+  padding: 7px;
+}
+
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

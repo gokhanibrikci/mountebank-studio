@@ -1,0 +1,141 @@
+/* ============================================================
+   Topbar contents.
+
+   The bar's frame (height, border, padding, the 1080px reflow and
+   the print rule) comes from src/styles/app.module.css `.topbar`,
+   which the component composes with these rules. Only what is
+   specific to the topbar's contents lives here.
+   ============================================================ */
+
+.bar {
+  position: relative;
+}
+
+/* ---------- the row ----------
+   The same measure as the page content (src/styles/app.module.css `.wrap`), so the
+   breadcrumb starts exactly above the page title and the search's right edge lands
+   exactly above the right edge of the cards under it. */
+.row {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 26px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ---------- the shared-environment guard ----------
+   An amber top edge painted as an inset shadow, not a border, so the
+   bar's 62px height does not shift between environments. */
+/* ---------- breadcrumbs ---------- */
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.crumb {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--tx-2);
+  font-size: var(--fs-base);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.crumb:hover {
+  color: var(--tx);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sep {
+  color: var(--tx-3);
+}
+
+.here {
+  font-weight: 650;
+  font-size: var(--fs-base);
+  color: var(--tx);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+/* ---------- search: a real field, not a chip ---------- */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  /* Narrow enough that the label nearly fills it: at 300px the box read as mostly
+     empty space with a shortcut floating at its far edge. */
+  width: 258px;
+  padding: 8px 11px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--tx-3);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+}
+
+.search:hover {
+  border-color: var(--line-input);
+  color: var(--tx-2);
+  background: var(--white);
+}
+
+.search svg {
+  color: var(--tx-3);
+}
+
+.kbd {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--tx-3);
+}
+
+/* ---------- narrow: the search collapses to its icon ---------- */
+@media (max-width: 1080px) {
+  .row {
+    padding: 0 18px;
+    gap: 12px;
+  }
+
+  .search {
+    width: auto;
+  }
+
+  .search span,
+  .search .kbd {
+    display: none;
+  }
+}
+
+@media print {
+  .bar {
+    display: none !important;
+  }
+}

@@ -1,0 +1,12 @@
+Mountebank Studio
+Copyright 2026 Gökhan İbrikçi
+
+This product includes software developed by the author and licensed under the
+Apache License, Version 2.0. See the LICENSE file for the full terms.
+
+Mountebank Studio is an independent project. It is not affiliated with, endorsed
+by, or sponsored by the mountebank project (http://www.mbtest.org). "mountebank"
+is used only to describe what this panel connects to.
+
+mountebank itself is MIT-licensed, Copyright (c) 2013 mountebank, and is NOT
+redistributed as part of this repository — the panel talks to an instance you run.
