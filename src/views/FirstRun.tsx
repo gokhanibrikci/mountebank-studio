@@ -26,11 +26,12 @@
  * served from — which is different on a laptop, a shared host and a preview.
  */
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { EnvId, MbEnvironment } from '../lib/environments';
 import { plural } from '../lib/format';
+import { useReach } from '../lib/mb/reach';
 import { useEnvironments, type EnvironmentDraft } from '../store/useEnvironments';
 import { useStudio } from '../store/useStudio';
 import { Button, Icon, Modal, PageHead, Pill, Section, Strip } from '../ui';
@@ -76,9 +77,23 @@ export function FirstRun() {
   const picked: MbEnvironment | undefined =
     list.find((e) => e.id === pickedId) ?? (list.length > 0 ? list[0] : undefined);
 
+  /*
+   * What this page can promise depends on what serves it. Served by
+   * `npx mountebank-studio`, the host will fetch an instance that refuses this page, so no
+   * flag is involved anywhere and saying otherwise sends people to change something that
+   * did not need changing. Served as a static build, the flag really is the answer.
+   */
+  const canForward = useReach((s) => s.forwarding?.enabled === true);
+  const loadForwarding = useReach((s) => s.loadForwarding);
+  useEffect(() => {
+    void loadForwarding();
+  }, [loadForwarding]);
+
   const command = `mb start --origin "${window.location.origin}"`;
   /* For someone who has no instance at all: npx needs no install and no config. */
-  const startCommand = `npx mountebank@2.9.1 --origin "${window.location.origin}"`;
+  const startCommand = canForward
+    ? 'npx mountebank@2.9.1'
+    : `npx mountebank@2.9.1 --origin "${window.location.origin}"`;
 
   function openAdd(): void {
     setEditingId(null);
@@ -234,19 +249,33 @@ export function FirstRun() {
         <Strip
           flush
           icon={<Icon name="bolt" />}
-          title="If an instance will not answer"
+          title={canForward ? 'If an instance refuses this page' : 'If an instance will not answer'}
           actions={
-            <Button size="sm" icon={<Icon name="copy" />} onClick={() => void copyCommand()}>
-              Copy
-            </Button>
+            canForward ? undefined : (
+              <Button size="sm" icon={<Icon name="copy" />} onClick={() => void copyCommand()}>
+                Copy
+              </Button>
+            )
           }
         >
-          A full URL is read straight from your browser, so that instance has to allow this page —
-          the flag goes wherever Mountebank runs, not here:{' '}
-          <code className={styles.cmd}>{command}</code>. For an instance you cannot restart, give a
-          path instead (<code className={styles.cmd}>/mb/stage</code>) and let this page&rsquo;s own
-          host forward it: nothing is cross-origin then, and that instance stays untouched.{' '}
-          <b>Test Connection</b> tells you which of the two you are looking at.
+          {canForward ? (
+            <>
+              It does not have to answer this page directly. Paste any address: if the instance is up
+              but was not started with an <code className={styles.cmd}>--origin</code> that allows
+              this page, the host serving the panel fetches it and passes it on — which is not a
+              cross-origin request at all. Nothing about that instance changes, and no flag is
+              involved anywhere. <b>Test Connection</b> reports which route it will use.
+            </>
+          ) : (
+            <>
+              A full URL is read straight from your browser, so that instance has to allow this page —
+              the flag goes wherever Mountebank runs, not here:{' '}
+              <code className={styles.cmd}>{command}</code>. For an instance you cannot restart, give
+              a path instead (<code className={styles.cmd}>/mb/stage</code>) and let this page&rsquo;s
+              own host forward it: nothing is cross-origin then, and that instance stays untouched.{' '}
+              <b>Test Connection</b> tells you which of the two you are looking at.
+            </>
+          )}
         </Strip>
 
         {picked === undefined ? null : (
@@ -328,7 +357,7 @@ export function FirstRun() {
       </Section>
 
       <Section
-        title="No Mountebank running yet?"
+        title={list.length === 0 ? 'No Mountebank running yet?' : 'Starting another one'}
         icon={<Icon name="bolt" />}
         tools={
           <Button size="sm" icon={<Icon name="copy" />} onClick={() => void copyStart()}>
@@ -337,15 +366,21 @@ export function FirstRun() {
         }
       >
         <p className={styles.copy}>
-          One command starts one, with this page already allowed. It needs Node and nothing else,
-          and it leaves nothing behind when you stop it.
+          {list.length === 0
+            ? 'One command starts one. It needs Node and nothing else, and it leaves nothing behind when you stop it.'
+            : 'One command starts another, on a port of its own. It needs Node and nothing else, and it leaves nothing behind when you stop it.'}
         </p>
         <pre className={styles.cmdBlock}>
           <code>{startCommand}</code>
         </pre>
         <p className={styles.copy}>
-          Then add <span className="mono">http://localhost:2525</span> above. Mountebank&rsquo;s own
-          documentation lives at{' '}
+          Then add <span className="mono">http://localhost:2525</span> above.{' '}
+          {canForward
+            ? /* The command above carries no --origin, and this is why: the flag would answer
+                 a question this host has already taken off the table. */
+              'It does not need to allow this page — this host fetches it for you.'
+            : 'The command allows this page, which a browser requires before the panel can read it.'}{' '}
+          Mountebank&rsquo;s own documentation lives at{' '}
           <a
             className={styles.link}
             href="https://www.mbtest.dev/"

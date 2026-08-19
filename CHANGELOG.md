@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.8 — 19 August 2026
+
+- **The welcome screen says what is true of the host serving it.** Two blocks still sent
+  people to add `--origin` to an instance, which 0.1.5 and 0.1.7 made unnecessary: served
+  by its own server, the panel has that instance fetched for it. Served that way, *If an
+  instance refuses this page* now explains that no flag is involved anywhere, and the start
+  command drops `--origin` — with a line saying why it is missing. Served as a static build
+  or by `yarn dev`, where nothing can forward, the original advice is exactly right and is
+  unchanged. Both readings were checked in a browser against a host of each kind.
+- **It stops asking a question it can see the answer to.** *No Mountebank running yet?* is
+  the heading only when nothing is listed; with an instance already there it reads
+  *Starting another one*, and the command is described as starting a second on a port of
+  its own.
+
 ## 0.1.7 — 19 August 2026
 
 - **An instance that refuses this page is now reached without being asked twice.** 0.1.5
