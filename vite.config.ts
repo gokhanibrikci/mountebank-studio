@@ -100,6 +100,12 @@ function manifestPlugin(env: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
+    /*
+     * '/' for the package, which serves the panel at an origin root. The demo is served
+     * from a project path on GitHub Pages, so the build needs to know its own prefix —
+     * and the router reads the same value back through import.meta.env.BASE_URL.
+     */
+    base: env.BASE_PATH === undefined || env.BASE_PATH === '' ? '/' : env.BASE_PATH,
     plugins: [react(), manifestPlugin(env)],
     define: { __APP_VERSION__: JSON.stringify(VERSION) },
     server: { port: 5273, proxy: proxyFromEnv(env) },

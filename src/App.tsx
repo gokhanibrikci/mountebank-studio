@@ -38,6 +38,8 @@ import { useEffect, useRef } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router-dom';
 
 import { CommandPalette } from './components/CommandPalette';
+import { DemoBanner } from './components/DemoBanner';
+import { DEMO_BUILD } from './lib/demo/instance';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import type { EnvId, MbEnvironment } from './lib/environments';
@@ -116,6 +118,7 @@ function Shell() {
         {/* tabIndex -1 so the skip target and post-navigation focus have a home */}
         <main ref={contentRef} className={`content ${styles.content}`} tabIndex={-1}>
           <div className={styles.wrap}>
+            {DEMO_BUILD ? <DemoBanner /> : null}
             <Outlet />
           </div>
         </main>

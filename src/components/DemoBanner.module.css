@@ -1,0 +1,44 @@
+/* Above every screen, so it cannot be scrolled past and forgotten. Amber rather than the
+   accent green: this is a caveat, not a feature. */
+.bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--warn-line);
+  border-radius: 10px;
+  background: var(--warn-a);
+}
+
+.bar > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--warn);
+}
+
+.text {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--tx-2);
+}
+
+.cmd {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--acc-a08);
+  color: var(--acc-2);
+}
+
+.link {
+  color: var(--acc);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

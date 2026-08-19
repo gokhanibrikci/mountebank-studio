@@ -13,6 +13,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import App from './App';
 import { seedFromHost } from './lib/environments';
+import { DEMO_BUILD, DEMO_TARGET } from './lib/demo/instance';
 import { readyToRoute, restoreForwards } from './lib/mb/reach';
 import { useEnvironments } from './store/useEnvironments';
 import { useStudio } from './store/useStudio';
@@ -66,13 +67,25 @@ await restoreForwards(
     .map((env) => env.target),
 );
 
+/*
+ * The demo build carries its own environment and skips the welcome. Somebody arriving from
+ * a link was promised the panel, not a form; the banner above every screen says what they
+ * are looking at, which the welcome could only say once.
+ */
+if (DEMO_BUILD) {
+  useEnvironments.getState().seed([{ id: 'demo', label: 'Demo', target: DEMO_TARGET }]);
+  useStudio.getState().setGreeted(true);
+}
+
 const adopted = useEnvironments.getState().seed(await seedFromHost());
 if (adopted && !useStudio.getState().greeted) useStudio.getState().setWelcome(true);
 
 createRoot(container).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      {/* BASE_URL so the same build works at a domain root and under a project path,
+        which is where GitHub Pages serves it from. */}
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
         <App />
       </BrowserRouter>
     </QueryClientProvider>

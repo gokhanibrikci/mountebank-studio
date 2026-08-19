@@ -62,6 +62,7 @@ import {
   statusLabel,
   statusPillTone,
 } from './RequestDrawer';
+import { DEMO_BUILD } from '../lib/demo/instance';
 import { Failure } from './Failure';
 import { StubEditor } from './StubEditor';
 import { StubList } from './StubList';
@@ -371,12 +372,25 @@ export function ImposterDetail() {
       />
 
       <Strip tone="info" icon={<Icon name="imps" />} title="Where this imposter answers">
-        Point the service under test at{' '}
-        <span className="mono">
-          {host}:{imposter.port}
-        </span>{' '}
-        and it talks to the stubs below instead of the real service. They are matched top to bottom,
-        and the tabs above count what this imposter holds and what it has received.
+        {DEMO_BUILD ? (
+          /* The demo runs no imposters, so telling somebody to point a service at this
+             port would be an instruction that cannot work. Say what would be true. */
+          <>
+            On an instance you run, the service under test would be pointed at{' '}
+            <span className="mono">localhost:{imposter.port}</span> and would talk to the stubs
+            below instead of the real service. In this demo nothing is listening on that port —
+            the stubs, the traffic and every screen are real, the socket is not.
+          </>
+        ) : (
+          <>
+            Point the service under test at{' '}
+            <span className="mono">
+              {host}:{imposter.port}
+            </span>{' '}
+            and it talks to the stubs below instead of the real service. They are matched top to
+            bottom, and the tabs above count what this imposter holds and what it has received.
+          </>
+        )}
       </Strip>
 
       {imposter.recordRequests ? null : (

@@ -21,6 +21,7 @@ import axios, { type AxiosInstance } from 'axios';
 
 import type { EnvId } from '../environments';
 import { findEnvironment } from '../../store/useEnvironments';
+import { DEMO_BUILD, demoClient, isDemoTarget } from '../demo/instance';
 import { imposterToMb, stubToMb } from './model';
 import { resolveTarget } from './reach';
 import type { Imposter, MbConfig, MbImposter, MbStub, Stub } from './types';
@@ -43,6 +44,17 @@ function http(env: EnvId): AxiosInstance {
   const key = `${env}|${base}`;
   let client = clients.get(key);
   if (!client) {
+    /*
+     * The demo answers from this tab. It is swapped in HERE, at the transport, so every
+     * screen, query and failure path above stays the code that talks to a real instance —
+     * if the demo behaves differently from the product, the demo is the thing that is
+     * wrong.
+     */
+    if (DEMO_BUILD && isDemoTarget(environment.target)) {
+      client = demoClient();
+      clients.set(key, client);
+      return client;
+    }
     client = axios.create({
       baseURL: base,
       timeout: 20_000,

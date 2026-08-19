@@ -1,0 +1,78 @@
+# The demo everybody is sent to before they install anything.
+#
+# The panel is a static page whose only dependency is an admin API, so a build with
+# VITE_DEMO=1 answers those calls from inside the tab (src/lib/demo) and the whole thing
+# works with nothing running. That makes a link as good as an install for a first look,
+# which is the difference between "interesting" and "I tried it".
+#
+# It deploys on every push to main, so the demo is never a version behind what the README
+# describes — a stale demo is worse than none, since it teaches the wrong product.
+
+name: Demo
+
+on:
+  push:
+    branches: [main]
+    tags-ignore: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and a newer push wins.
+concurrency:
+  group: demo
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Install
+        run: yarn install --frozen-lockfile
+
+      - name: Build the demo
+        # BASE_PATH because Pages serves this under /<repo>/, and the router reads it back.
+        run: yarn build
+        env:
+          VITE_DEMO: '1'
+          BASE_PATH: /mountebank-studio/
+
+      - name: Prove it is the demo build
+        # Cheap, and it catches the one failure that would otherwise ship silently: a
+        # build where the flag did not take, leaving a panel with no environment and no
+        # explanation of why it is empty.
+        run: |
+          set -euo pipefail
+          grep -q 'This is a demo' dist/assets/*.js
+          grep -q 'demo://in-this-tab' dist/assets/*.js
+          grep -q '/mountebank-studio/assets/' dist/index.html
+
+      - name: Serve deep links too
+        # Pages has no SPA fallback; 404.html is the one it will use for /demo/imposters.
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

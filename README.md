@@ -8,6 +8,10 @@ admin API of any instance you point it at and gives you screens for the things y
 would otherwise hand-write as JSON: imposters, stubs, predicates, responses, proxy
 responses, behaviors, and the traffic each imposter has captured.
 
+**[Try it in your browser →](https://gokhanibrikci.github.io/mountebank-studio/)** — the same
+panel with a Mountebank stand-in inside the page, so there is nothing to install to see what
+it does. Nothing is listening in there, and it says so on every screen.
+
 It also reads the mocks back out as a **Postman collection** — every imposter a folder,
 every stub a request that satisfies it — so what you have running is something you can
 fire at straight away. The download is on the Imposters screen, next to *New Imposter*.
