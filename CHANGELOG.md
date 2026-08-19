@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.2 — 19 August 2026
+
+Documentation and two details of presentation. Nothing in how the panel talks to a
+Mountebank has changed.
+
+- **The README answers three questions a first run actually raises.** How to install it
+  rather than fetch it on every run; how to pin one version for a team, as a development
+  dependency with a script — and where that has to be run, since `npm run` outside a
+  project answers `ENOENT ... package.json` and says nothing about why; and what a
+  restart forgets. Mountebank keeps imposters in memory, so the instance started for you
+  is empty every time: the way to keep what you built is to copy **Settings → Full
+  configuration** and start Mountebank yourself with `--configfile`. That recipe was run
+  before it was written.
+- **The banner keeps one column.** `Using your instance` is four characters longer than
+  `Started for you`, and with a fixed gap after the label the URL moved with it.
+- **The independence line in Settings uses the width of its card**, instead of stopping
+  short of it while every row above ran to the edge.
+
 ## 0.1.1 — 18 August 2026
 
 - **`npx mountebank-studio` installs 24 MB instead of 44 MB.** React, React DOM,
