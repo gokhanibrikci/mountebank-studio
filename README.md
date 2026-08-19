@@ -76,6 +76,25 @@ mountebank-studio
 The only difference from `npx` is that `npx` resolves the package on every run and this
 resolves it once.
 
+### For an instance you cannot add `--origin` to
+
+A Mountebank somebody else deployed will refuse the panel: the browser demands that
+instance allow this page, and `--origin` is not yours to add. Point this server at it
+instead and every request goes out from this origin, forwarded:
+
+```bash
+mountebank-studio --mb-url https://mountebank.example.com
+```
+
+No instance is started; `/mb/local` forwards to that one. Nothing about it has to change,
+and CORS never enters the picture. An environment already holding that full URL is routed
+through the forward automatically — the panel matches it against what this host publishes
+at `/mb/targets.json`, so there is nothing to edit.
+
+Add `--insecure` only if its certificate cannot be fixed. It turns off verification for
+that upstream, which means anything between you and it can read and change these
+requests; the banner says so while it is on.
+
 ### Or pinned to a project, for a team
 
 This one is different: it belongs **inside a project** — a directory that has a

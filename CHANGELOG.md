@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.4 — 19 August 2026
+
+- **`--mb-url https://…` works.** The forward was built on `node:http` whichever
+  protocol the target used, so an https upstream closed the socket instead of answering
+  — an empty reply, with nothing in the log to explain it. The module is chosen by the
+  target's protocol now, and a default port comes from that module rather than from a
+  guess. This is the flag's main case: a Mountebank somebody else deployed, behind TLS,
+  that you cannot add `--origin` to. Verified against a real staging instance whose
+  `/config` reports no origin allowlist at all — proof the request went through the
+  forward, since a direct call from this origin could not have been read.
+- **`--insecure`** skips TLS verification for that upstream, for a certificate that
+  cannot be fixed. Off by default, and the banner says so while it is on.
+- **An environment named after where it points.** With `--mb-url` the published
+  environment was still called *Local*, so the sidebar called a staging instance local on
+  every screen. It carries the upstream's host now.
+
 ## 0.1.3 — 19 August 2026
 
 Two faults with one cause: the panel decided all-or-nothing what to take from the host

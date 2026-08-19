@@ -31,6 +31,7 @@ import { spawn } from 'node:child_process';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import http from 'node:http';
+import https from 'node:https';
 import { createRequire } from 'node:module';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,6 +54,8 @@ const HELP = `
     --mb-url <url>     use a Mountebank ALREADY running there, and start none
     --allow-injection  let stubs run JavaScript. This is code execution: only do
                        it on an instance you would trust with a shell
+    --insecure         do not verify the TLS certificate of --mb-url. For an instance
+                       behind a certificate you cannot fix, and nothing else
     --host <addr>      bind the panel to this address            (default 127.0.0.1)
                        0.0.0.0 exposes it to your network — see the warning it prints
     --version          print the version
@@ -62,6 +65,7 @@ const HELP = `
     npx mountebank-studio
     npx mountebank-studio --port 8080 --mb-port 3000
     npx mountebank-studio --mb-url http://localhost:2525
+    npx mountebank-studio --mb-url https://mountebank.example.com
 `;
 
 function parseArgs(argv) {
@@ -70,6 +74,7 @@ function parseArgs(argv) {
     mbPort: 2525,
     mbUrl: null,
     allowInjection: false,
+    insecure: false,
     host: '127.0.0.1',
   };
 
@@ -90,6 +95,7 @@ function parseArgs(argv) {
     else if (arg === '--mb-port') opts.mbPort = Number(next());
     else if (arg === '--mb-url') opts.mbUrl = next().replace(/\/+$/, '');
     else if (arg === '--allow-injection') opts.allowInjection = true;
+    else if (arg === '--insecure') opts.insecure = true;
     else if (arg === '--host') opts.host = next();
     else throw new Error(`unknown option ${arg}`);
   }
@@ -217,19 +223,29 @@ function serveStatic(req, res) {
  * `/mb/local/*` → the instance, with the prefix stripped. Same origin as the panel,
  * which is the entire point: the browser never makes a cross-origin request, so
  * CORS, mixed content and private-network rules never enter the picture.
+ *
+ * The module comes from the target's protocol. It was `http` unconditionally, which made
+ * `--mb-url https://…` close the socket instead of answering — and that is precisely the
+ * case the flag exists for: an instance somebody else deployed, behind TLS, that you
+ * cannot add `--origin` to.
  */
-function proxy(req, res, upstream) {
+function proxy(req, res, upstream, insecure = false) {
   const target = new URL(upstream);
+  const secure = target.protocol === 'https:';
   const path = req.url.replace(new RegExp(`^/mb/${ROUTE}`), '') || '/';
 
-  const forwarded = http.request(
+  const forwarded = (secure ? https : http).request(
     {
       protocol: target.protocol,
       hostname: target.hostname,
-      port: target.port,
+      /* Left out for a default port, so 443 and 80 come from the module rather than
+         from a guess here — `new URL()` reports those as an empty string. */
+      ...(target.port === '' ? {} : { port: target.port }),
       method: req.method,
       path,
+      /* The upstream's own host, so a vhost routes it and TLS gets the right SNI. */
       headers: { ...req.headers, host: target.host },
+      ...(secure && insecure ? { rejectUnauthorized: false } : {}),
     },
     (upstreamRes) => {
       res.writeHead(upstreamRes.statusCode ?? 502, upstreamRes.headers);
@@ -281,6 +297,11 @@ async function main() {
     process.exit(1);
   }
 
+  /* fetch has no per-call option for this, and the probe below must agree with the
+     proxy: promising --insecure and then failing to read /config would be worse than
+     not offering the flag. */
+  if (opts.insecure) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
   const upstream = opts.mbUrl ?? `http://127.0.0.1:${opts.mbPort}`;
   const child = opts.mbUrl === null ? startMountebank(opts) : null;
 
@@ -293,7 +314,18 @@ async function main() {
      * came from is already legible without one — the sidebar names the route and
      * Settings says it is reached through this page's own host.
      */
-    environments: [{ id: ROUTE, label: 'Local', target: `/mb/${ROUTE}` }],
+    environments: [
+      {
+        id: ROUTE,
+        /*
+         * "Local" is only true when this server started the instance. With --mb-url it
+         * forwards to somebody else's, and calling a staging instance Local is a lie
+         * the sidebar repeats on every screen afterwards.
+         */
+        label: opts.mbUrl === null ? 'Local' : new URL(upstream).host,
+        target: `/mb/${ROUTE}`,
+      },
+    ],
   };
 
   const server = http.createServer((req, res) => {
@@ -307,7 +339,7 @@ async function main() {
       return;
     }
     if (req.url.startsWith(`/mb/${ROUTE}`)) {
-      proxy(req, res, upstream);
+      proxy(req, res, upstream, opts.insecure);
       return;
     }
     serveStatic(req, res);
@@ -340,6 +372,9 @@ async function main() {
         '',
         opts.allowInjection
           ? '  Injection is ON. Stubs on this instance can run JavaScript.\n'
+          : '',
+        opts.insecure
+          ? '  TLS verification is OFF for this upstream. Anything sitting between you and\n  it can read and change these requests.\n'
           : '',
         opts.host === '0.0.0.0'
           ? '  This panel is exposed to your network, and whoever opens it can rewrite\n  these mocks. Put authentication in front of it.\n'
