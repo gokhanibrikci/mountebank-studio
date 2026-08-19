@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.6 — 19 August 2026
+
+- **An environment saved from the form records that it is read through this host whenever
+  it is** — not only when that test is what arranged it. A route registered earlier, by
+  another environment or an earlier session, left the environment saved without the mark,
+  so a restart made it fail once before the offer appeared again. Who registered the route
+  first has no bearing on what the panel needs to know afterwards.
+
 ## 0.1.5 — 19 August 2026
 
 **Adding an environment is now enough, even for an instance that refuses this page.**

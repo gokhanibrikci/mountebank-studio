@@ -137,8 +137,16 @@ export function EnvironmentForm({
     onSave({
       label: label.trim(),
       target: normalise(target),
-      /* Read off the test rather than tracked beside it: one fact, one home. */
-      ...(probe?.kind === 'reachable' && probe.arranged === true ? { forwarded: true } : {}),
+      /*
+       * Recorded whenever the test read it through this origin — whether this test is
+       * what arranged that or the route already existed. What matters after a restart is
+       * that the panel knows to ask again, and "who registered it first" does not change
+       * that. A host that forwards permanently (nginx) simply says it takes no
+       * registrations, and asking costs one refused request.
+       */
+      ...(probe?.kind === 'reachable' && probe.via !== undefined && !proxied
+        ? { forwarded: true }
+        : {}),
       /* Always sent, so clearing the note actually clears it on an edit. */
       note: note.trim(),
     });
