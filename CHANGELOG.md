@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.1.5 — 19 August 2026
+
+**Adding an environment is now enough, even for an instance that refuses this page.**
+
+Until now the panel could only report that failure. The instance is up, it does not allow
+this origin, and `--origin` belongs to whoever runs it — so the advice was to change
+something the person reading it often cannot change. The only way through was to restart
+this server with `--mb-url`, which meant knowing about a flag before adding an
+environment, and made the environment list pointless in that mode.
+
+The host serving the panel can fetch that instance perfectly well, and a request that
+leaves from this origin is not cross-origin at all. So it will now be asked:
+
+- **In the form.** Paste the URL, press *Test Connection*, and a blocked instance is
+  arranged rather than reported: the verdict reads *read through this host, which now
+  forwards to it at …*, and saving records how it is reached.
+- **In the error.** An environment you already have offers *Reach it through this host*
+  the first time a read fails. One press and the read succeeds.
+
+Three things this deliberately does not do. It does not rewrite the address you typed —
+that records where the instance **is**, and the route is worked out from what the host
+publishes at `/mb/targets.json`. It does not keep forwards in a file: the host holds them
+in memory, and the panel remembers which environments were reached that way and asks again
+after a restart, so the arrangement outlives the process without state nobody can find.
+And it does not offer any of this when the panel is bound to a network with `--host` — an
+endpoint that makes this server fetch whatever URL it is handed would be a proxy for
+whoever can reach it. Registration also refuses a URL that is not http(s), credentials in
+a URL, and a request from another site.
+
 ## 0.1.4 — 19 August 2026
 
 - **`--mb-url https://…` works.** The forward was built on `node:http` whichever

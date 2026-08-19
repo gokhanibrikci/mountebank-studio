@@ -14,6 +14,10 @@
  * (`resolveTarget`), so a forwarded instance is simply reached, and this block only
  * ever reports what nobody can fix from inside the page.
  *
+ * The button IS back, but it does something the panel can actually do: ask the host
+ * serving this page to fetch that instance and pass it on. The old one only offered to
+ * repoint an environment at a route that had to already exist.
+ *
  * It renders inline text only, because its callers are a Strip's sentence, an
  * EmptyState's body and a paragraph.
  */
@@ -21,7 +25,7 @@
 import type { ReactNode } from 'react';
 
 import { describeError } from '../lib/mb/client';
-import { useCause } from '../lib/mb/reach';
+import { useCause, useForwardOffer } from '../lib/mb/reach';
 import styles from './Failure.module.css';
 
 export interface FailureProps {
@@ -37,14 +41,31 @@ export interface FailureProps {
 
 export function Failure({ target, error, children }: FailureProps) {
   const cause = useCause(target, error);
+  const offer = useForwardOffer(target);
+
+  /* Only where it is the answer: an instance that is up and refusing this origin. */
+  const offering = cause?.blocked === true && (offer.available || offer.busy);
 
   return (
     <>
       {cause === null ? describeError(error) : cause.text}
-      {cause?.command === undefined ? null : (
+      {offering ? (
         <>
           {' '}
-          Start it with <code className={styles.cmd}>{cause.command}</code>
+          <button
+            type="button"
+            className={styles.offer}
+            onClick={() => void offer.arrange()}
+            disabled={offer.busy}
+          >
+            {offer.busy ? 'Arranging…' : 'Reach it through this host'}
+          </button>
+        </>
+      ) : null}
+      {cause?.command === undefined ? null : (
+        <>
+          {offering ? ', or start it with ' : ' Start it with '}
+          <code className={styles.cmd}>{cause.command}</code>
         </>
       )}
       {children === undefined ? null : <> {children}</>}

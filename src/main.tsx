@@ -13,7 +13,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import App from './App';
 import { seedFromHost } from './lib/environments';
-import { readyToRoute } from './lib/mb/reach';
+import { readyToRoute, restoreForwards } from './lib/mb/reach';
 import { useEnvironments } from './store/useEnvironments';
 import { useStudio } from './store/useStudio';
 import './styles/base.css';
@@ -54,6 +54,18 @@ await readyToRoute();
  * by nobody who took the one-command route. The environment is listed there as a row,
  * so it costs a press of Start rather than anything typed.
  */
+/*
+ * Forwards the user arranged before are asked for again, since the host keeps them in
+ * memory and `npx` restarts often. After the manifest, so anything already published is
+ * free; before the first render, so the first read of the session takes the right route.
+ */
+await restoreForwards(
+  useEnvironments
+    .getState()
+    .list.filter((env) => env.forwarded === true)
+    .map((env) => env.target),
+);
+
 const adopted = useEnvironments.getState().seed(await seedFromHost());
 if (adopted && !useStudio.getState().greeted) useStudio.getState().setWelcome(true);
 

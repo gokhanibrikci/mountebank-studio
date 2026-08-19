@@ -27,6 +27,12 @@ export interface EnvironmentDraft {
   label: string;
   target: string;
   note?: string;
+  /**
+   * Set when the form had this host forward to the instance, because it answered and
+   * refused this page. Not typed by anyone — it is the outcome of a request that
+   * succeeded while testing, carried so the environment is saved knowing how it is read.
+   */
+  forwarded?: boolean;
 }
 
 interface EnvironmentsState {
@@ -48,6 +54,12 @@ interface EnvironmentsState {
   add: (draft: EnvironmentDraft) => MbEnvironment;
   update: (id: EnvId, patch: Partial<EnvironmentDraft>) => void;
   remove: (id: EnvId) => void;
+  /**
+   * Remember that this host was asked to forward to an environment's instance, so it can
+   * be asked again after the host restarts and forgets. Not part of the draft a form
+   * submits: nobody types this, it is the outcome of a request that succeeded.
+   */
+  markForwarded: (id: EnvId) => void;
 }
 
 export const useEnvironments = create<EnvironmentsState>()(
@@ -63,6 +75,7 @@ export const useEnvironments = create<EnvironmentsState>()(
           ),
           label: draft.label.trim(),
           target: normalise(draft.target),
+          ...(draft.forwarded === true ? { forwarded: true } : {}),
           ...(draft.note !== undefined && draft.note !== '' ? { note: draft.note } : {}),
         };
         set({ list: [...get().list, created] });
@@ -101,6 +114,11 @@ export const useEnvironments = create<EnvironmentsState>()(
       },
 
       remove: (id) => set({ list: get().list.filter((e) => e.id !== id) }),
+
+      markForwarded: (id) =>
+        set({
+          list: get().list.map((e) => (e.id === id ? { ...e, forwarded: true } : e)),
+        }),
     }),
     { name: 'mountebank-studio-environments' },
   ),

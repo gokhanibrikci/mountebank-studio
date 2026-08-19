@@ -79,21 +79,33 @@ resolves it once.
 ### For an instance you cannot add `--origin` to
 
 A Mountebank somebody else deployed will refuse the panel: the browser demands that
-instance allow this page, and `--origin` is not yours to add. Point this server at it
-instead and every request goes out from this origin, forwarded:
+instance allow this page, and `--origin` belongs to whoever runs it.
+
+**Just add it as an environment.** Paste its URL into **Add Environment** and press *Test
+Connection*: if it answers but refuses this page, the panel asks the host serving it to
+fetch it instead, and reports the route it will use. Nothing about that instance changes,
+nothing is typed twice, and no restart is involved. An environment you already have shows
+the same offer inside the error the first time a read fails — *Reach it through this host*.
+
+The address you typed is left exactly as it is. It records where the instance **is**; the
+route is worked out from what this host publishes at `/mb/targets.json`. Because the host
+keeps its forwards in memory, the panel remembers which environments were reached that way
+and asks again after a restart — so it survives one without a file on disk.
+
+Only loopback may ask. Bound to a network with `--host`, the server refuses: an endpoint
+that makes it fetch any URL it is handed would be a proxy for whoever can reach it.
+
+You can also name the instance up front, which is the better fit for a script:
 
 ```bash
 mountebank-studio --mb-url https://mountebank.example.com
 ```
 
-No instance is started; `/mb/local` forwards to that one. Nothing about it has to change,
-and CORS never enters the picture. An environment already holding that full URL is routed
-through the forward automatically — the panel matches it against what this host publishes
-at `/mb/targets.json`, so there is nothing to edit.
+No instance is started; `/mb/local` forwards to that one.
 
-Add `--insecure` only if its certificate cannot be fixed. It turns off verification for
-that upstream, which means anything between you and it can read and change these
-requests; the banner says so while it is on.
+Add `--insecure` only if a certificate cannot be fixed. It turns off verification for that
+upstream, which means anything between you and it can read and change these requests; the
+banner says so while it is on.
 
 ### Or pinned to a project, for a team
 

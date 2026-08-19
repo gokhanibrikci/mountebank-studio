@@ -20,10 +20,13 @@
  * cached "it is there" would then be a confident lie.
  */
 
+import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 
+import { useEnvironments } from '../../store/useEnvironments';
+import { useStudio } from '../../store/useStudio';
 import { isProxied } from '../environments';
 
 export type Reach = 'unknown' | 'checking' | 'answered' | 'silent';
@@ -49,6 +52,21 @@ interface ReachState {
    */
   manifest: Record<string, string> | null | undefined;
   loadManifest: () => void;
+  /**
+   * Whether the host serving this page will forward somewhere new if asked, and why not
+   * when it will not. undefined until asked; a plain static deployment answers nothing
+   * and is recorded as disabled.
+   */
+  forwarding: { enabled: boolean; reason?: string } | undefined;
+  loadForwarding: () => Promise<void>;
+  /**
+   * Ask this host to forward to `url` as well. Returns the path it will be reached on,
+   * or null when the host said no.
+   *
+   * The manifest is updated on success, which is all `resolveTarget` needs: the
+   * environment keeps its address and the route changes underneath it.
+   */
+  askForward: (url: string) => Promise<string | null>;
   /** Awaitable, for the one load that happens before the app renders. */
   ready: () => Promise<void>;
 }
@@ -68,10 +86,14 @@ export async function respondsAtAll(target: string): Promise<boolean> {
 
 /** Where the forwarding layer publishes its map. Same origin, so always readable. */
 const MANIFEST_URL = '/mb/targets.json';
+/** Whether that layer takes requests, and where to send them. */
+const FORWARDING_URL = '/mb/forwarding';
+const TARGETS_URL = '/mb/targets';
 
 export const useReach = create<ReachState>()((set, get) => ({
   map: {},
   manifest: undefined,
+  forwarding: undefined,
 
   loadManifest: () => {
     void get().ready();
@@ -96,6 +118,41 @@ export const useReach = create<ReachState>()((set, get) => ({
       if (Object.keys(clean).length > 0) set({ manifest: clean });
     } catch {
       /* No manifest. The slot already says so, and every target is called directly. */
+    }
+  },
+
+  loadForwarding: async () => {
+    if (get().forwarding !== undefined) return;
+    set({ forwarding: { enabled: false } });
+    try {
+      const response = await fetch(FORWARDING_URL, { cache: 'no-store' });
+      if (!response.ok) return;
+      const body: unknown = await response.json();
+      if (typeof body !== 'object' || body === null) return;
+      const { enabled, reason } = body as { enabled?: unknown; reason?: unknown };
+      if (enabled === true) set({ forwarding: { enabled: true } });
+      else if (typeof reason === 'string') set({ forwarding: { enabled: false, reason } });
+    } catch {
+      /* Served by something that has never heard of this. Disabled, as set above. */
+    }
+  },
+
+  askForward: async (url) => {
+    try {
+      const response = await fetch(TARGETS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+        cache: 'no-store',
+      });
+      if (!response.ok) return null;
+      const body: unknown = await response.json();
+      const { name, route } = body as { name?: unknown; route?: unknown };
+      if (typeof name !== 'string' || typeof route !== 'string') return null;
+      set((s) => ({ manifest: { ...(s.manifest ?? {}), [name]: url } }));
+      return route;
+    } catch {
+      return null;
     }
   },
 
@@ -165,10 +222,17 @@ export function useCause(target: string, error: unknown): Cause | null {
   const opaque = isOpaque(error);
   const probe = useReach((s) => s.probe);
   const verdict = useReach((s) => s.map[target]?.reach) ?? 'unknown';
+  const forwarding = useReach((s) => s.forwarding);
+  const loadForwarding = useReach((s) => s.loadForwarding);
 
   useEffect(() => {
     if (opaque) probe(target);
   }, [opaque, target, probe, error]);
+
+  /* Whether this host takes requests decides what the blocked case should even say. */
+  useEffect(() => {
+    if (opaque) void loadForwarding();
+  }, [opaque, loadForwarding]);
 
   if (!opaque) return null;
 
@@ -191,6 +255,24 @@ export function useCause(target: string, error: unknown): Cause | null {
   }
 
   if (verdict === 'answered') {
+    /*
+     * Up, and refusing this page. Whether that is worth explaining at length depends on
+     * whether anything can be done from here: a host that will forward turns this into a
+     * button, and a paragraph about a flag on somebody else's instance becomes the
+     * footnote rather than the answer.
+     */
+    if (forwarding?.enabled === true) {
+      return {
+        blocked: true,
+        command: `mb start --origin "${origin}"`,
+        text:
+          `That address answered, but not to this page: the instance was not started with an ` +
+          `--origin that allows ${origin}, so the browser throws the reply away. Nothing about ` +
+          `that instance has to change, though — the host serving this panel can fetch it and ` +
+          `pass it on, which is not a cross-origin request at all.`,
+      };
+    }
+
     return {
       blocked: true,
       command: `mb start --origin "${origin}"`,
@@ -213,6 +295,69 @@ export function useCause(target: string, error: unknown): Cause | null {
   }
 
   return { blocked: false, text: 'Working out whether that is the address or a permission…' };
+}
+
+export interface ForwardOffer {
+  /** Whether asking would help and is possible at all. */
+  available: boolean;
+  busy: boolean;
+  /** Ask, remember the answer, and read again. */
+  arrange: () => Promise<void>;
+}
+
+/**
+ * "Have this host forward to it."
+ *
+ * The offer that turns an unfixable error into one click. A blocked instance is up and
+ * refuses this page, and `--origin` belongs to whoever runs it — which may be nobody in
+ * this room. But the server that serves this panel can fetch it perfectly well, and a
+ * request that leaves from this origin is not cross-origin at all.
+ *
+ * Nothing about the environment's address changes: it still records where the instance
+ * is, and `resolveTarget` works the route out from the host's manifest, which this adds
+ * to. The decision is remembered on the environment so it survives the host restarting
+ * and forgetting.
+ */
+export function useForwardOffer(target: string): ForwardOffer {
+  const forwarding = useReach((s) => s.forwarding);
+  const loadForwarding = useReach((s) => s.loadForwarding);
+  const askForward = useReach((s) => s.askForward);
+  const manifest = useReach((s) => s.manifest);
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void loadForwarding();
+  }, [loadForwarding]);
+
+  const routed =
+    manifest !== undefined &&
+    manifest !== null &&
+    Object.values(manifest).some((upstream) => sameInstance(upstream, target));
+
+  const available =
+    target !== '' && !isProxied(target) && !routed && forwarding?.enabled === true && !busy;
+
+  const arrange = async (): Promise<void> => {
+    setBusy(true);
+    const route = await askForward(target);
+    setBusy(false);
+
+    const { toast } = useStudio.getState();
+    if (route === null) {
+      toast('This host would not forward to that address', 'warn');
+      return;
+    }
+
+    const { list, markForwarded } = useEnvironments.getState();
+    for (const env of list) {
+      if (sameInstance(env.target, target)) markForwarded(env.id);
+    }
+    toast('Reaching it through this panel\u2019s host from now on');
+    await queryClient.invalidateQueries();
+  };
+
+  return { available, busy, arrange };
 }
 
 /**
@@ -267,3 +412,32 @@ export const isForwarded = (target: string): boolean => isProxied(resolveTarget(
 
 /** The one load that must finish before the first request is built. */
 export const readyToRoute = (): Promise<void> => useReach.getState().ready();
+
+/**
+ * Re-ask for the forwards the user arranged in an earlier session.
+ *
+ * The host keeps them in memory, so `npx mountebank-studio` forgets every one on restart
+ * while the browser still remembers which environments were reached that way. Asking
+ * again here is what makes the arrangement outlive the process, without a file on disk
+ * that nobody would ever think to look at.
+ *
+ * Runs after the manifest has loaded, so anything the host already publishes costs
+ * nothing, and never rejects: a host that has stopped forwarding leaves the environment
+ * failing as it would have anyway, with the offer available again.
+ */
+export async function restoreForwards(targets: string[]): Promise<void> {
+  if (targets.length === 0) return;
+  const { loadForwarding, askForward } = useReach.getState();
+  await loadForwarding();
+  if (useReach.getState().forwarding?.enabled !== true) return;
+
+  for (const target of targets) {
+    const { manifest } = useReach.getState();
+    const known =
+      manifest !== undefined &&
+      manifest !== null &&
+      Object.values(manifest).some((upstream) => sameInstance(upstream, target));
+    if (known || target === '' || isProxied(target)) continue;
+    await askForward(target);
+  }
+}

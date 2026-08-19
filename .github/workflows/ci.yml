@@ -97,6 +97,29 @@ jobs:
           echo "— and the imposter it created answers"
           curl -fsS -m 5 http://127.0.0.1:6399/ | grep -q ok
 
+          echo "— it will take a forward, and refuses the three things it must"
+          curl -fsS -m 5 http://127.0.0.1:5399/mb/forwarding | grep -q '"enabled":true'
+          # The upstream it already forwards keeps the name it has: asking twice for one
+          # instance must not mint a second route.
+          curl -fsS -m 10 -X POST http://127.0.0.1:5399/mb/targets \
+            -H 'Content-Type: application/json' \
+            -d '{"url":"http://127.0.0.1:2599"}' | grep -q '"name":"local"'
+          # A new one does get a route, named after the host with the dots flattened.
+          curl -fsS -m 10 -X POST http://127.0.0.1:5399/mb/targets \
+            -H 'Content-Type: application/json' \
+            -d '{"url":"http://127.0.0.1:65533"}' | grep -q '"route":"/mb/127-0-0-1-65533"'
+          curl -fsS -m 5 http://127.0.0.1:5399/mb/targets.json | grep -q '127-0-0-1-65533'
+          # A URL that is not http(s), credentials in the URL, and another site asking.
+          for body in '{"url":"ftp://x"}' '{"url":"https://u:p@x.test"}'; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -m 5 -X POST \
+              http://127.0.0.1:5399/mb/targets -H 'Content-Type: application/json' -d "$body")
+            [ "$code" = "400" ] || { echo "expected 400 for $body, got $code"; exit 1; }
+          done
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 5 -X POST \
+            http://127.0.0.1:5399/mb/targets -H 'Content-Type: application/json' \
+            -H 'Origin: https://elsewhere.test' -d '{"url":"https://x.test"}')
+          [ "$code" = "403" ] || { echo "expected 403 for a foreign origin, got $code"; exit 1; }
+
           echo "— injection is off and the instance is loopback-only, as shipped"
           # Mountebank pretty-prints /config, so these greps tolerate the spacing.
           config=$(curl -fsS -m 5 http://127.0.0.1:5399/mb/local/config)

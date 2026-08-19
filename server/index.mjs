@@ -39,8 +39,36 @@ import { fileURLToPath } from 'node:url';
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const DIST = resolve(HERE, '..', 'dist');
 
-/* The name the panel knows this instance by: /mb/local, and "local" in the map. */
+/* The name the panel knows the instance this server owns by: /mb/local. */
 const ROUTE = 'local';
+
+/*
+ * Everything this server forwards, as `name → upstream`.
+ *
+ * It starts with the instance this server owns and GROWS: the panel can ask for another
+ * upstream at run time (POST /mb/targets), which is what makes adding an environment in
+ * the browser enough. Without that, an instance you cannot add `--origin` to could only
+ * be reached by restarting this server with --mb-url, and an environment added in the UI
+ * failed for a reason nothing in the UI could fix.
+ *
+ * It is deliberately NOT written to disk. The panel remembers which of its environments
+ * it asked to have forwarded and asks again on load, so the record lives with the person
+ * who made the choice rather than in a file nobody knows about.
+ */
+const forwards = new Map();
+
+/** A route name from a URL: the host, and the port when there is one. */
+function routeName(url) {
+  const { hostname, port } = new URL(url);
+  const base = `${hostname}${port === '' ? '' : `-${port}`}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return base === '' ? 'upstream' : base;
+}
+
+/** Same instance? Compared the way the panel compares them. */
+const sameUpstream = (a, b) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
 
 const HELP = `
   mountebank-studio — a visual console for Mountebank
@@ -170,6 +198,16 @@ function startMountebank(opts) {
   return child;
 }
 
+/*
+ * Whether this server may be told to forward somewhere new.
+ *
+ * Only while it is bound to loopback. Exposed to a network, an endpoint that makes this
+ * process fetch any URL it is handed is a proxy for whoever can reach it, and no amount
+ * of care in the panel would change that.
+ */
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+const mayRegister = (opts) => LOOPBACK.has(opts.host);
+
 /* ────────────────────────────────  serving  ─────────────────────────────── */
 
 const MIME = {
@@ -229,10 +267,10 @@ function serveStatic(req, res) {
  * case the flag exists for: an instance somebody else deployed, behind TLS, that you
  * cannot add `--origin` to.
  */
-function proxy(req, res, upstream, insecure = false) {
+function proxy(req, res, route, upstream, insecure = false) {
   const target = new URL(upstream);
   const secure = target.protocol === 'https:';
-  const path = req.url.replace(new RegExp(`^/mb/${ROUTE}`), '') || '/';
+  const path = req.url.slice(`/mb/${route}`.length) || '/';
 
   const forwarded = (secure ? https : http).request(
     {
@@ -260,6 +298,118 @@ function proxy(req, res, upstream, insecure = false) {
   });
 
   req.pipe(forwarded);
+}
+
+/** One JSON body, with a ceiling so a stray stream cannot fill memory. */
+function readJson(req, limit = 8 * 1024) {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+      if (raw.length > limit) {
+        reject(new Error('body too large'));
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        reject(new Error('body is not JSON'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+/**
+ * `POST /mb/targets` — "forward to this one as well."
+ *
+ * The panel calls it when a read failed because the instance refuses this origin and
+ * `--origin` is not the user's to add. Registering the upstream here is enough: the
+ * manifest then names it, and the panel routes that environment through this origin by
+ * itself, without the environment's address being rewritten.
+ *
+ * Two refusals worth reading:
+ *
+ *  • NOT ON A PUBLIC BIND. See `mayRegister`.
+ *  • NOT CROSS-ORIGIN. A page on another site must not be able to make this process
+ *    fetch a URL of its choosing. Browsers preflight a JSON POST and this server answers
+ *    no preflight, so such a request never arrives — the Origin check is the belt to
+ *    that braces, and costs one comparison.
+ */
+async function registerForward(req, res, opts, origin) {
+  if (!mayRegister(opts)) {
+    sendJson(res, 403, {
+      errors: [
+        {
+          code: 'forwarding refused',
+          message:
+            `This panel is bound to ${opts.host}, not loopback. Registering a forward would ` +
+            `make this server fetch URLs on behalf of anyone who can reach it, so it is only ` +
+            `allowed on 127.0.0.1.`,
+        },
+      ],
+    });
+    return;
+  }
+
+  const from = req.headers.origin;
+  if (from !== undefined && from !== origin) {
+    sendJson(res, 403, {
+      errors: [{ code: 'forwarding refused', message: `${from} is not this panel.` }],
+    });
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJson(req);
+  } catch (error) {
+    sendJson(res, 400, { errors: [{ code: 'bad request', message: error.message }] });
+    return;
+  }
+
+  const url = typeof body?.url === 'string' ? body.url.trim().replace(/\/+$/, '') : '';
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    parsed = null;
+  }
+  if (parsed === null || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) {
+    sendJson(res, 400, {
+      errors: [{ code: 'bad request', message: `${url || '(nothing)'} is not an http(s) URL.` }],
+    });
+    return;
+  }
+  if (parsed.username !== '' || parsed.password !== '') {
+    sendJson(res, 400, {
+      errors: [
+        {
+          code: 'bad request',
+          message: 'Credentials in the URL are not forwarded. Put them in a header instead.',
+        },
+      ],
+    });
+    return;
+  }
+
+  /* Idempotent: the same upstream keeps the name it already has. */
+  for (const [name, existing] of forwards) {
+    if (sameUpstream(existing, url)) {
+      sendJson(res, 200, { name, route: `/mb/${name}`, url: existing });
+      return;
+    }
+  }
+
+  let name = routeName(url);
+  /* A name is a path segment, and two upstreams must never share one. */
+  for (let n = 2; forwards.has(name); n += 1) name = `${routeName(url)}-${n}`;
+  forwards.set(name, url);
+
+  console.log(`  + forwarding /mb/${name} → ${url}`);
+  sendJson(res, 201, { name, route: `/mb/${name}`, url });
 }
 
 /* ──────────────────────────────────  main  ──────────────────────────────── */
@@ -328,20 +478,51 @@ async function main() {
     ],
   };
 
+  const origin = `http://${opts.host === '0.0.0.0' ? 'localhost' : opts.host}:${opts.port}`;
+
+  forwards.set(ROUTE, upstream);
+
   const server = http.createServer((req, res) => {
-    if (req.url === '/mb/targets.json') {
+    const path = req.url.split('?')[0];
+
+    if (path === '/mb/targets.json') {
       /* What this host forwards, so the panel can route by itself. */
-      sendJson(res, 200, { [ROUTE]: upstream });
+      sendJson(res, 200, Object.fromEntries(forwards));
       return;
     }
-    if (req.url === '/mb/bootstrap.json') {
+    if (path === '/mb/bootstrap.json') {
       sendJson(res, 200, bootstrap);
       return;
     }
-    if (req.url.startsWith(`/mb/${ROUTE}`)) {
-      proxy(req, res, upstream, opts.insecure);
+    if (path === '/mb/forwarding') {
+      /* Whether asking is worth the panel's while, and why not when it is not. */
+      sendJson(
+        res,
+        200,
+        mayRegister(opts)
+          ? { enabled: true }
+          : {
+              enabled: false,
+              reason: `this panel is bound to ${opts.host} rather than loopback`,
+            },
+      );
       return;
     }
+    if (path === '/mb/targets' && req.method === 'POST') {
+      void registerForward(req, res, opts, origin);
+      return;
+    }
+
+    /* Any registered route, longest name first so one name cannot shadow another. */
+    if (path.startsWith('/mb/')) {
+      const names = [...forwards.keys()].sort((a, b) => b.length - a.length);
+      const hit = names.find((name) => path === `/mb/${name}` || path.startsWith(`/mb/${name}/`));
+      if (hit !== undefined) {
+        proxy(req, res, hit, forwards.get(hit), opts.insecure);
+        return;
+      }
+    }
+
     serveStatic(req, res);
   });
 
@@ -357,7 +538,6 @@ async function main() {
   const info = await waitForAdminApi(upstream);
 
   server.listen(opts.port, opts.host, () => {
-    const where = `http://${opts.host === '0.0.0.0' ? 'localhost' : opts.host}:${opts.port}`;
     const version = info?.version ? `mountebank ${info.version}` : 'mountebank (version unknown)';
     /* One column, whatever the label. "Using your instance" is four characters longer
        than "Started for you", and with a fixed gap it pushed that row out of line. */
@@ -366,9 +546,9 @@ async function main() {
     console.log(
       [
         '',
-        `  ${label('Mountebank Studio')}${where}`,
+        `  ${label('Mountebank Studio')}${origin}`,
         `  ${label(opts.mbUrl === null ? 'Started for you' : 'Using your instance')}${upstream} · ${version}`,
-        `  ${label('Reached through')}${where}/mb/${ROUTE} — nothing is cross-origin`,
+        `  ${label('Reached through')}${origin}/mb/${ROUTE} — nothing is cross-origin`,
         '',
         opts.allowInjection
           ? '  Injection is ON. Stubs on this instance can run JavaScript.\n'

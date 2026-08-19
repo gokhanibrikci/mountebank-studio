@@ -29,7 +29,7 @@ import axios from 'axios';
 
 import { isProxied, normalise, validate, type MbEnvironment } from '../lib/environments';
 import { describeError } from '../lib/mb/client';
-import { resolveTarget, respondsAtAll } from '../lib/mb/reach';
+import { resolveTarget, respondsAtAll, useReach } from '../lib/mb/reach';
 import type { MbConfig } from '../lib/mb/types';
 import type { EnvironmentDraft } from '../store/useEnvironments';
 import { useStudio } from '../store/useStudio';
@@ -48,7 +48,14 @@ const PROBE_TIMEOUT_MS = 8_000;
  */
 type Probe =
   | { kind: 'testing' }
-  | { kind: 'reachable'; version: string | null; injection: boolean; via?: string }
+  | {
+      kind: 'reachable';
+      version: string | null;
+      injection: boolean;
+      via?: string;
+      /** True when THIS test is what made `via` exist: the host was asked, and agreed. */
+      arranged?: boolean;
+    }
   | { kind: 'refused'; status: string; detail?: string }
   /** The instance answered, but not to this page: --origin does not list it. */
   | { kind: 'blocked' }
@@ -130,6 +137,8 @@ export function EnvironmentForm({
     onSave({
       label: label.trim(),
       target: normalise(target),
+      /* Read off the test rather than tracked beside it: one fact, one home. */
+      ...(probe?.kind === 'reachable' && probe.arranged === true ? { forwarded: true } : {}),
       /* Always sent, so clearing the note actually clears it on an edit. */
       note: note.trim(),
     });
@@ -180,9 +189,40 @@ export function EnvironmentForm({
         setProbe({ kind: 'silent' });
         return;
       }
-      /* It is up but will not answer this page. Before saying "add a flag to that
-         instance", check whether this origin already forwards to it — that costs
-         one same-origin request and turns the advice into a button. */
+      /*
+       * Up, and refusing this page. Telling somebody to add `--origin` to an instance
+       * they may not run is the last resort, not the first: the host serving this panel
+       * can fetch it and pass it on, and asking costs one same-origin request. If it
+       * agrees, the address stays exactly as typed and the route changes underneath.
+       */
+      const { loadForwarding, askForward } = useReach.getState();
+      await loadForwarding();
+      if (useReach.getState().forwarding?.enabled === true) {
+        const arranged = await askForward(normalise(target));
+        if (arranged !== null) {
+          try {
+            const viaHost = axios.create({
+              baseURL: arranged,
+              timeout: PROBE_TIMEOUT_MS,
+              headers: { 'Content-Type': 'application/json' },
+            });
+            const { data } = await viaHost.get<MbConfig>('/config');
+            setProbe({
+              kind: 'reachable',
+              version:
+                typeof data.version === 'string' && data.version !== '' ? data.version : null,
+              injection: data.options?.allowInjection === true,
+              via: arranged,
+              arranged: true,
+            });
+            return;
+          } catch {
+            /* The host took the request but could not read it either. Say what is true
+               below rather than claiming a route that does not work. */
+          }
+        }
+      }
+
       setProbe({ kind: 'blocked' });
     }
   }
@@ -349,8 +389,15 @@ function ProbeResult({
       ) : (
         <p>
           Version {probe.version}, read{' '}
-          {probe.via === undefined ? 'directly' : `through ${probe.via}`} — nothing else to do.
-          Injection is {probe.injection ? 'allowed' : 'rejected'} on this instance.
+          {probe.via === undefined
+            ? 'directly'
+            : probe.arranged === true
+              ? /* It refused this page, so this host was asked to fetch it instead. Worth
+                   saying plainly: the address is unchanged, the route is new. */
+                `through this host, which now forwards to it at ${probe.via}`
+              : `through ${probe.via}`}{' '}
+          — nothing else to do. Injection is {probe.injection ? 'allowed' : 'rejected'} on this
+          instance.
         </p>
       );
   } else if (probe.kind === 'refused') {

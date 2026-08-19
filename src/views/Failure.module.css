@@ -18,3 +18,27 @@
   color: var(--acc-2);
   overflow-wrap: anywhere;
 }
+
+/* The offer, inline in the sentence that explains why it exists. A button rather than a
+   link because it acts here and now; underlined because inside a paragraph nothing else
+   says it can be pressed. */
+.offer {
+  font: inherit;
+  color: var(--acc);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.offer:hover:not(:disabled) {
+  color: var(--acc-hi);
+}
+
+.offer:disabled {
+  color: var(--tx-3);
+  cursor: default;
+  text-decoration: none;
+}

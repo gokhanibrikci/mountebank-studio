@@ -44,6 +44,13 @@ export interface MbEnvironment {
    * of this page forwards to it. See the note at the top of this file.
    */
   target: string;
+  /**
+   * Set when the user had this host forward to the instance because it refuses this
+   * origin. The address above is left alone — it still says where the instance IS — and
+   * the route is worked out from the host's manifest. This only records the decision, so
+   * it can be asked for again after the host restarts and forgets.
+   */
+  forwarded?: boolean;
   /** Optional caution shown next to the environment. */
   note?: string;
 }
