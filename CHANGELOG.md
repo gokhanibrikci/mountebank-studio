@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.7 — 19 August 2026
+
+- **An instance that refuses this page is now reached without being asked twice.** 0.1.5
+  put an offer in the error — *Reach it through this host* — and a link inside a paragraph
+  is easy to read past, especially when the block around it looks like the failure you
+  already know. Pointing an environment at an instance was the request; arranging the route
+  is how it gets carried out, so the panel does it and says so in a toast. The link stays
+  for the case where the host says no.
+- **Mountebank's `error:` and `warn:` lines are no longer thrown away.** Its log goes to
+  stdout and this server ignored that stream entirely, so a genuine complaint from the
+  instance vanished along with the "now taking orders" chatter. Those two levels come
+  through; the rest stays quiet, because the banner already says the version and the port.
+- **The punycode deprecation warning is dropped.** Mountebank supports an smtp imposter, so
+  it depends on smtp-server, mailparser and nodemailer, and those require Node's deprecated
+  built-in `punycode`; Node 21 and later print it on every start. Nobody reading it can act
+  on it. Every other line, including any other deprecation, still comes through — and each
+  line is labelled now, rather than only the first of a chunk.
+
 ## 0.1.6 — 19 August 2026
 
 - **An environment saved from the form records that it is read through this host whenever

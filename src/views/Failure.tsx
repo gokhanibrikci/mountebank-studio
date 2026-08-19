@@ -41,7 +41,12 @@ export interface FailureProps {
 
 export function Failure({ target, error, children }: FailureProps) {
   const cause = useCause(target, error);
-  const offer = useForwardOffer(target);
+  /*
+   * `auto`: a blocked instance is arranged without being asked twice. Pointing an
+   * environment at it was the request; this is only how it gets carried out. The button
+   * below stays for the case where the host said no, or has nothing to offer.
+   */
+  const offer = useForwardOffer(target, cause?.blocked === true);
 
   /* Only where it is the answer: an instance that is up and refusing this origin. */
   const offering = cause?.blocked === true && (offer.available || offer.busy);

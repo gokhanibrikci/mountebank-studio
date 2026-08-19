@@ -161,6 +161,67 @@ async function waitForAdminApi(url, attempts = 60) {
   return null;
 }
 
+/*
+ * Mountebank's own output, filtered on the way through.
+ *
+ * ITS LOG GOES TO STDOUT, and most of it duplicates what the banner above already says
+ * ("now taking orders", the version, the port). Printing all of it would bury this
+ * server's own three lines. Ignoring the stream entirely — which is what this did — hid
+ * the lines that matter instead: a winston `error:` or `warn:` from the instance was
+ * discarded along with the chatter. Only those two get through now.
+ *
+ * ITS STDERR carries one warning on every start, on Node 21 and later:
+ *
+ *     DeprecationWarning: The `punycode` module is deprecated
+ *
+ * Mountebank supports an smtp imposter, so it depends on smtp-server, mailparser and
+ * nodemailer, and those require Node's built-in punycode. Nobody reading that can act on
+ * it — the fix belongs to those packages, three levels down a dependency this package
+ * pins — and printing it on every start teaches people to ignore what this server says.
+ * It is dropped; every other line, including any other deprecation, comes through.
+ *
+ * Lines are also assembled before being labelled. A chunk can hold several, and
+ * prefixing the chunk labels only the first — which left later lines hanging off the
+ * margin, looking like a broken tool.
+ */
+const ANSI = /\u001b\[[0-9;]*m/g;
+const PUNYCODE = /DeprecationWarning: The `punycode` module is deprecated/;
+/* Winston writes `error: [mb:2525] …`; the colour codes are stripped before matching. */
+const WORTH_SAYING = /^(error|warn)\b/i;
+
+function pipeLines(stream, keep) {
+  let rest = '';
+  stream.on('data', (chunk) => {
+    const lines = (rest + chunk).split('\n');
+    /* The tail may be half a line; hold it until its newline arrives. */
+    rest = lines.pop() ?? '';
+    for (const line of lines) {
+      const plain = line.replace(ANSI, '').trim();
+      if (plain === '' || !keep(plain)) continue;
+      process.stderr.write(`  mountebank: ${line.replace(ANSI, '').trimEnd()}\n`);
+    }
+  });
+}
+
+function pipeChild(child) {
+  /* Anything but the noise, and the hint that belongs to it. */
+  let droppedNoise = false;
+  pipeLines(child.stderr, (line) => {
+    if (PUNYCODE.test(line)) {
+      droppedNoise = true;
+      return false;
+    }
+    if (droppedNoise && line.includes('--trace-deprecation')) {
+      droppedNoise = false;
+      return false;
+    }
+    droppedNoise = false;
+    return true;
+  });
+
+  pipeLines(child.stdout, (line) => WORTH_SAYING.test(line));
+}
+
 function startMountebank(opts) {
   const bin = mountebankBin();
   if (bin === null) {
@@ -187,8 +248,8 @@ function startMountebank(opts) {
   const args = [bin, '--port', String(opts.mbPort), '--localOnly'];
   if (opts.allowInjection) args.push('--allowInjection');
 
-  const child = spawn(process.execPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
-  child.stderr.on('data', (chunk) => process.stderr.write(`  mountebank: ${chunk}`));
+  const child = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  pipeChild(child);
   child.on('exit', (code) => {
     if (code !== 0 && code !== null) {
       console.error(`\n  Mountebank exited with code ${code}. Is port ${opts.mbPort} free?\n`);

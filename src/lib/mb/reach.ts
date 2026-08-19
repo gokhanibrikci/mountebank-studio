@@ -22,7 +22,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 
 import { useEnvironments } from '../../store/useEnvironments';
@@ -306,6 +306,12 @@ export interface ForwardOffer {
 }
 
 /**
+ * Targets this session has already asked about, so several screens reporting one failure
+ * do not each fire a request — and a refusal is not retried in a loop.
+ */
+const asked = new Set<string>();
+
+/**
  * "Have this host forward to it."
  *
  * The offer that turns an unfixable error into one click. A blocked instance is up and
@@ -318,7 +324,7 @@ export interface ForwardOffer {
  * to. The decision is remembered on the environment so it survives the host restarting
  * and forgetting.
  */
-export function useForwardOffer(target: string): ForwardOffer {
+export function useForwardOffer(target: string, auto = false): ForwardOffer {
   const forwarding = useReach((s) => s.forwarding);
   const loadForwarding = useReach((s) => s.loadForwarding);
   const askForward = useReach((s) => s.askForward);
@@ -356,6 +362,26 @@ export function useForwardOffer(target: string): ForwardOffer {
     toast('Reaching it through this panel\u2019s host from now on');
     await queryClient.invalidateQueries();
   };
+
+  /* Held in a ref so keeping it current does not re-run the effect below. */
+  const arrangeRef = useRef(arrange);
+  arrangeRef.current = arrange;
+
+  /*
+   * With `auto`, the panel does not wait to be told. The user pointed an environment at
+   * that instance, which is the whole of the intent involved; making them read a
+   * paragraph and press a link to get what they already asked for is ceremony. The toast
+   * in `arrange` says what happened, and Settings reports the route from then on.
+   *
+   * Once per target per session: `asked` is shared, so the several screens that report
+   * one failure make one request between them, and a host that says no is not asked
+   * again on every render.
+   */
+  useEffect(() => {
+    if (!auto || !available || asked.has(target)) return;
+    asked.add(target);
+    void arrangeRef.current();
+  }, [auto, available, target]);
 
   return { available, busy, arrange };
 }
