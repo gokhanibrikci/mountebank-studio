@@ -10,7 +10,7 @@ responses, behaviors, and the traffic each imposter has captured.
 
 It also reads the mocks back out as a **Postman collection** — every imposter a folder,
 every stub a request that satisfies it — so what you have running is something you can
-fire at straight away.
+fire at straight away. The download is on the Imposters screen, next to *New Imposter*.
 
 ![The workspace: what is running, how much of it answered, and the traffic it took](docs/overview.png)
 

@@ -29,7 +29,6 @@ import { clearProxyResponses, clearRequests, describeError } from '../lib/mb/cli
 import { imposterToMb, pretty } from '../lib/mb/model';
 import type { MbConfig } from '../lib/mb/types';
 import { mbKeys, useConfig, useImposters } from '../lib/queries';
-import { toPostmanCollection } from '../lib/postman';
 import { useEnvironments, type EnvironmentDraft } from '../store/useEnvironments';
 import { useStudio } from '../store/useStudio';
 import { Button, CodeEditor, EmptyState, Icon, Modal, PageHead, Pill, Section, Strip } from '../ui';
@@ -416,46 +415,6 @@ function Instance({ environment }: { environment: MbEnvironment }) {
     return label;
   }
 
-  /**
-   * The mocks as something to fire at them.
-   *
-   * A stub is a condition; a request is one instance of it. The conversion is lossy in a
-   * way that matters — `startsWith`, `not`, `or`, `exists` — so each request carries a
-   * description of what was left behind, and this only reports how many imposters could
-   * not be represented at all (tcp and smtp have no URL Postman can send to).
-   */
-  function downloadPostman(): void {
-    const list = imposters.data ?? [];
-    const { collection, skipped } = toPostmanCollection(environment.label, list);
-    const stubs = collection.item.reduce((n, folder) => n + folder.item.length, 0);
-
-    if (collection.item.length === 0) {
-      toast(
-        list.length === 0
-          ? 'There are no imposters here to export'
-          : 'No imposter here speaks http, so there is nothing Postman could send to',
-        'warn',
-      );
-      return;
-    }
-
-    const file = `${environment.id}-mountebank.postman_collection.json`;
-    const url = URL.createObjectURL(
-      new Blob([`${JSON.stringify(collection, null, 2)}\n`], { type: 'application/json' }),
-    );
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = file;
-    link.click();
-    /* The blob is only needed for the click; holding it would leak the whole document. */
-    URL.revokeObjectURL(url);
-
-    toast(
-      `${plural(stubs, 'request')} in ${plural(collection.item.length, 'folder')}` +
-        (skipped.length === 0 ? '' : ` · ${plural(skipped.length, 'imposter')} left out`),
-    );
-  }
-
   async function copyConfig(): Promise<void> {
     try {
       await navigator.clipboard.writeText(previewJson);
@@ -626,26 +585,6 @@ function Instance({ environment }: { environment: MbEnvironment }) {
             </Button>
           </div>
 
-          <div className={styles.row}>
-            <div className={styles.rowText}>
-              <b>Postman collection</b>
-              <span>
-                Every imposter as a folder and every stub as a request that satisfies it, with the
-                host as a variable. Where a stub cannot be one request — a path prefix, a{' '}
-                <code>not</code>, an <code>or</code> — the request says so in its description.
-              </span>
-            </div>
-            <Button
-              icon={<Icon name="save" />}
-              onClick={downloadPostman}
-              disabled={imposters.data === undefined}
-              title={
-                imposters.data === undefined ? 'The imposter list has not been read yet' : undefined
-              }
-            >
-              Download
-            </Button>
-          </div>
         </div>
       </Section>
 

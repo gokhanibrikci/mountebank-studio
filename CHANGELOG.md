@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — 19 August 2026
+
+- **The Postman download moved to the Imposters page header**, beside *New Imposter* and
+  *Save Config*. It shipped in Settings, under Maintenance, four rows down and a scroll
+  below the fold — where the person who asked for it could not find it. Reading the mocks
+  back out belongs next to the list of them, which is where anyone looks for "export all of
+  this". It is gone from Settings: one action, one place.
+
 ## 0.2.0 — 19 August 2026
 
 ### The mocks, as a Postman collection

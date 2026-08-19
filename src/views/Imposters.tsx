@@ -30,6 +30,8 @@ import { envOr } from '../store/useEnvironments';
 import { plural } from '../lib/format';
 import { describeError, replaceAll } from '../lib/mb/client';
 import type { Imposter } from '../lib/mb/types';
+import { saveJson } from '../lib/download';
+import { toPostmanCollection } from '../lib/postman';
 import { mbKeys, useCreateImposter, useDeleteImposter, useImposters } from '../lib/queries';
 import { useStudio } from '../store/useStudio';
 import { Button, Card, EmptyState, Icon, Modal, PageHead, Pill, Strip, Table } from '../ui';
@@ -138,7 +140,39 @@ export function Imposters() {
 
   const detailPath = (port: number): string => `/${env}/imposters/${port}`;
 
+  /* The export reports its own outcome, and the create/delete paths already toast. */
+  const toast = useStudio((s) => s.toast);
+
   const list = imposters.data ?? [];
+
+  /**
+   * The mocks as something to fire at them.
+   *
+   * A stub is a condition and a request is one instance of it, so the conversion is lossy
+   * in ways that matter — `startsWith`, `not`, `or`, `exists` — and each request carries a
+   * description of what was left behind. This only reports the counts: how much came out,
+   * and how many imposters had no URL Postman could send to.
+   */
+  function downloadPostman(): void {
+    const { collection, skipped } = toPostmanCollection(environment.label, list);
+    const requests = collection.item.reduce((n, folder) => n + folder.item.length, 0);
+
+    if (collection.item.length === 0) {
+      toast(
+        list.length === 0
+          ? 'There are no imposters here to export'
+          : 'No imposter here speaks http, so there is nothing Postman could send to',
+        'warn',
+      );
+      return;
+    }
+
+    saveJson(`${environment.id}-mountebank.postman_collection.json`, collection);
+    toast(
+      `${plural(requests, 'request')} in ${plural(collection.item.length, 'folder')}` +
+        (skipped.length === 0 ? '' : ` · ${plural(skipped.length, 'imposter')} left out`),
+    );
+  }
   const ports = list.map((i) => i.port);
   const collision = ports.length !== new Set(ports).size;
 
@@ -187,6 +221,17 @@ export function Imposters() {
             title="Send every imposter to this environment in one write"
           >
             Save Config
+          </Button>
+          {/* Reading the mocks back out belongs next to the list of them, which is where
+              anyone looks for "export all of this" — it was in Settings, under
+              Maintenance, where it went unfound. */}
+          <Button
+            icon={<Icon name="down" size={14} />}
+            onClick={downloadPostman}
+            disabled={list.length === 0}
+            title="Every imposter as a folder and every stub as a request that satisfies it"
+          >
+            Postman Collection
           </Button>
         </>
       }
