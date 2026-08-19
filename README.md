@@ -67,11 +67,19 @@ exposed — only the panel's is.
 npm i -g mountebank-studio
 ```
 
-Then `mountebank-studio`, from anywhere. The only difference is that `npx` resolves the
-package on every run and this resolves it once.
+Then run it by name, from any directory:
 
-To pin one version for a whole team, add it to a project as a development dependency
-and give it a script:
+```bash
+mountebank-studio
+```
+
+The only difference from `npx` is that `npx` resolves the package on every run and this
+resolves it once.
+
+### Or pinned to a project, for a team
+
+This one is different: it belongs **inside a project** — a directory that has a
+`package.json` — and it fixes one version for everyone who checks that project out.
 
 ```bash
 npm i -D mountebank-studio
@@ -81,9 +89,16 @@ npm i -D mountebank-studio
 "scripts": { "mocks": "mountebank-studio" }
 ```
 
-`npm run mocks` then starts the same version for everyone who checks the project out.
-Installing it as a *runtime* dependency does nothing useful: this is a program to run,
-not a library to import.
+```bash
+npm run mocks
+```
+
+`npm run` only works where a `package.json` with that script exists; run it anywhere
+else and npm answers `ENOENT: no such file or directory ... package.json`. A global
+install is not part of this recipe — use the plain `mountebank-studio` command above.
+
+Installing it as a *runtime* dependency does nothing useful either way: this is a
+program to run, not a library to import.
 
 ### What survives a restart, and what does not
 

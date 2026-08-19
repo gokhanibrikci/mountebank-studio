@@ -246,7 +246,6 @@
 
 .independence {
   margin: 14px 0 0;
-  max-width: 78ch;
   font-size: var(--fs-sm);
   line-height: 1.55;
   color: var(--tx-3);
