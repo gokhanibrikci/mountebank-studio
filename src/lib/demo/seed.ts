@@ -17,10 +17,16 @@
 
 import type { MbImposter } from '../mb/types';
 
-/* A fixed clock: the demo must read the same on every visit, and "3 minutes ago" is
-   worked out from the newest request rather than from the machine's date. */
-const T = (secondsAgo: number): string =>
-  new Date(Date.parse('2026-08-19T09:14:00.000Z') - secondsAgo * 1000).toISOString();
+/*
+ * Timestamps are relative to when the page opened, not to a date written here.
+ *
+ * A hosted demo is read months after it is built, and traffic labelled "a month ago" reads
+ * as a dead system rather than a demonstration. Minutes ago, always, is both truer to what
+ * the screen is showing — captured traffic from a session in progress — and the only
+ * version that does not rot.
+ */
+const OPENED_AT = Date.now();
+const T = (secondsAgo: number): string => new Date(OPENED_AT - secondsAgo * 1000).toISOString();
 
 const ORDERS: MbImposter = {
   port: 4545,
@@ -132,7 +138,9 @@ const ORDERS: MbImposter = {
       requestFrom: '::ffff:127.0.0.1:54031',
       method: 'GET',
       path: '/v1/orders/1002',
-      query: { include: 'lines' },
+      /* No `include`, so the second stub's not(…) holds and it answers — which is the
+         point of having a negated predicate in the seed at all. */
+      query: {},
       headers: { Host: 'localhost:4545', Accept: 'application/json' },
       body: '',
       timestamp: T(96),
@@ -200,8 +208,8 @@ const PAYMENTS: MbImposter = {
       method: 'POST',
       path: '/v1/payments',
       query: {},
-      headers: { Host: 'localhost:4546', 'Content-Type': 'text/plain' },
-      body: 'orderId=1002',
+      headers: { Host: 'localhost:4546', 'Content-Type': 'application/json' },
+      body: '{"orderId":1002,"amount":38}',
       timestamp: T(72),
     },
   ],
