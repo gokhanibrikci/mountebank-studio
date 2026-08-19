@@ -9,7 +9,7 @@
  * never revert somebody's stub edit.
  */
 
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 import type { Imposter } from '../lib/mb/types';
 import { Button, CodeEditor, Field, Icon, Input, Section, Select, Switch } from '../ui';
@@ -49,6 +49,12 @@ export interface ImposterSettingsProps {
   onSave: (next: Imposter) => void;
   /** Opens the delete confirmation, which the screen above owns. */
   onDelete: () => void;
+  /**
+   * The whole definition as JSON, rendered above the fields. Passed in rather than built
+   * here: applying it replaces the imposter, which is the screen above's business, and
+   * this file has no reason to know how that is done.
+   */
+  json?: ReactNode;
 }
 
 /**
@@ -61,6 +67,7 @@ export function ImposterSettings({
   saving,
   onSave,
   onDelete,
+  json,
 }: ImposterSettingsProps) {
   const id = useId();
 
@@ -110,7 +117,18 @@ export function ImposterSettings({
 
   return (
     <>
+      {/*
+        What is about to happen reads first, and the buttons sit where a form's buttons
+        belong: at the end of the row, confirming action last. They were on the left with
+        the sentence trailing them, so the eye met "Save Changes" before the line saying
+        that saving restarts the port.
+      */}
       <div className={styles.bar}>
+        <span className={!portOk || !nameOk ? styles.bad : styles.hint}>{status}</span>
+        <div className={styles.spacer} />
+        <Button variant="ghost" disabled={!dirty || saving} onClick={() => setDraft(seed(imposter))}>
+          Revert
+        </Button>
         <Button
           variant="primary"
           icon={<Icon name="save" />}
@@ -119,15 +137,6 @@ export function ImposterSettings({
         >
           {saving ? 'Saving…' : 'Save Changes'}
         </Button>
-        <Button
-          variant="ghost"
-          disabled={!dirty || saving}
-          onClick={() => setDraft(seed(imposter))}
-        >
-          Revert
-        </Button>
-        <div className={styles.spacer} />
-        <span className={!portOk || !nameOk ? styles.bad : styles.hint}>{status}</span>
       </div>
 
       <Section title="Basics">
@@ -175,11 +184,18 @@ export function ImposterSettings({
         />
       </Section>
 
+      {/* The whole definition, above the one field that is a slice of it. Editing JSON
+          and editing these fields are two ways at the same object, so they belong on one
+          screen rather than in tabs that hide each other. */}
+      {json}
+
       <Section title="Default response">
         <Field hint="Returned when no stub matches. Leave empty for Mountebank's own 200 with an empty body.">
           <CodeEditor
             language="json"
-            height={132}
+            /* 132px held about four lines, which is shorter than the shortest useful
+               response — a status and a one-line body already overflowed it. */
+            height={260}
             value={draft.defaultResponse}
             readOnly={locked}
             onChange={locked ? undefined : (next) => patch({ defaultResponse: next })}

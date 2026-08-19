@@ -7,7 +7,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 11px;
+  margin-bottom: 9px;
   flex-wrap: wrap;
 }
 
@@ -15,19 +15,27 @@
   margin-left: auto;
 }
 
-/* the validity readout — the prototype's `.sync` */
+/* The validity readout, on a line of its own beneath the actions.
+   `anywhere` because a parser message can be one long unbroken clause, and a line
+   that runs off the card is worse than one that wraps. */
 .sync {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  align-items: baseline;
   gap: 7px;
+  margin: 0 0 10px;
   font-family: var(--mono);
   font-size: var(--fs-xs);
+  line-height: 1.5;
   color: var(--tx-3);
+  overflow-wrap: anywhere;
 }
 
 .sync svg {
   width: 14px;
   height: 14px;
+  flex: none;
+  /* Baseline-aligned text with an icon needs the icon nudged, not the text. */
+  transform: translateY(2px);
 }
 
 .ok {

@@ -67,7 +67,7 @@ import { StubEditor } from './StubEditor';
 import { StubList } from './StubList';
 import styles from './ImposterDetail.module.css';
 
-export type ImposterTab = 'stubs' | 'activity' | 'settings' | 'json';
+export type ImposterTab = 'stubs' | 'activity' | 'settings';
 
 /** Long enough for the drawer's exit transition to finish. */
 const DRAWER_EXIT_MS = 300;
@@ -246,8 +246,9 @@ export function ImposterDetail() {
   const tabs: Array<{ id: ImposterTab; label: string; count: number | null }> = [
     { id: 'stubs', label: 'Stubs', count: imposter.stubs.length },
     { id: 'activity', label: 'Activity', count: requests.length },
+    /* JSON is not a tab of its own any more: it lives inside Settings, above the one
+       field that is a slice of it. Two tabs editing the same object hid each other. */
     { id: 'settings', label: 'Settings', count: null },
-    { id: 'json', label: 'JSON', count: null },
   ];
 
   /* --------------------------------- actions ------------------------------ */
@@ -335,6 +336,16 @@ export function ImposterDetail() {
         title={imposter.name}
         tools={
           <>
+            {/* Its own name, port, protocol and default response are edited under
+                Settings, which is not obvious from a tab strip below the fold. */}
+            <Button
+              icon={<Icon name="cog" />}
+              disabled={saving}
+              title="Name, port, protocol, default response and the whole JSON"
+              onClick={() => setTab('settings')}
+            >
+              Edit
+            </Button>
             <Button
               variant="primary"
               icon={<Icon name="plus" />}
@@ -420,17 +431,17 @@ export function ImposterDetail() {
             saving={saving}
             onSave={(next) => void applyImposter(next)}
             onDelete={() => setConfirmDelete(true)}
+            json={
+              <ImposterJson
+                key={imposter.port}
+                imposter={imposter}
+                saving={saving}
+                onApply={(next) => void applyImposter(next)}
+              />
+            }
           />
         ) : null}
 
-        {tab === 'json' ? (
-          <ImposterJson
-            key={imposter.port}
-            imposter={imposter}
-            saving={saving}
-            onApply={(next) => void applyImposter(next)}
-          />
-        ) : null}
       </div>
 
       <Modal

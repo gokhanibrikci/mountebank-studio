@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.2.0 — 19 August 2026
+
+### The mocks, as a Postman collection
+
+**Settings → Postman collection → Download.** Every imposter becomes a folder, every stub
+a request that satisfies it, and the host is a variable so one file follows the instance
+from a laptop to a shared box.
+
+A stub is a condition and a request is one instance of it, so the translation is lossy —
+and every request says how. A `startsWith` path is one path that fits it. A `not(…)` cannot
+be a request at all and is left out. An `or` contributes its first branch. `exists` names a
+field without a value. Each of those is written into the request's own description, because
+a request that quietly fails to match the stub it came from would be worse than none.
+
+One thing it reports that only the panel could know: **which stub will actually answer.**
+Satisfying a stub's conditions is not the same as being reached by it — Mountebank takes
+the first stub that fits, so a broader stub above answers instead. Found by firing an
+exported collection at a real imposter, where a POST written from stub 2 came back with
+stub 1's 404. The panel evaluates the request against the whole list and says so:
+
+> Stub 1 also fits this request and, being higher in the list, is the one that answers it.
+> Narrow that stub, or move this one above it, to reach this stub.
+
+`tcp` and `smtp` imposters are left out — Postman has no URL to send to — and the count
+that was left out is reported rather than silently dropped.
+
+### The imposter screen
+
+- **Edit**, in the header, opens Settings — where its name, port, protocol and default
+  response live. A tab strip below the fold was not where anyone looked for that.
+- **The JSON tab is gone, and its editor is inside Settings**, above Default response.
+  Editing the fields and editing the JSON are two ways at one object; as separate tabs each
+  hid the other.
+- **Save Changes and Revert moved to the right of their row**, after the sentence saying
+  what saving will do. The buttons came first and the consequence trailed them.
+- **Default response has room to be read** — it held about four lines, which a status and a
+  one-line body already overflowed.
+- **An invalid-JSON message no longer moves the buttons.** It shared a wrapping row with
+  them, so a parser message pushed *Replace Imposter from JSON* onto its own line. The
+  message has a line of its own now, where the part that matters — `line 49 column 28` — is
+  read whole rather than truncated.
+
 ## 0.1.8 — 19 August 2026
 
 - **The welcome screen says what is true of the host serving it.** Two blocks still sent

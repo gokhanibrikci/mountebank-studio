@@ -8,6 +8,10 @@ admin API of any instance you point it at and gives you screens for the things y
 would otherwise hand-write as JSON: imposters, stubs, predicates, responses, proxy
 responses, behaviors, and the traffic each imposter has captured.
 
+It also reads the mocks back out as a **Postman collection** — every imposter a folder,
+every stub a request that satisfies it — so what you have running is something you can
+fire at straight away.
+
 ![The workspace: what is running, how much of it answered, and the traffic it took](docs/overview.png)
 
 <details>

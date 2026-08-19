@@ -15,7 +15,7 @@ import { useMemo, useState } from 'react';
 
 import { imposterFromMb, imposterToMb, pretty } from '../lib/mb/model';
 import type { Imposter, MbImposter } from '../lib/mb/types';
-import { Button, CodeEditor, Icon } from '../ui';
+import { Button, CodeEditor, Icon, Section } from '../ui';
 import styles from './ImposterJson.module.css';
 
 type Parsed = { ok: true; imposter: Imposter } | { ok: false; message: string };
@@ -61,11 +61,7 @@ export interface ImposterJsonProps {
  * once per imposter and a background refetch cannot overwrite an edit in
  * progress. "Reload from server" is the deliberate way back.
  */
-export function ImposterJson({
-  imposter,
-  saving,
-  onApply,
-}: ImposterJsonProps) {
+export function ImposterJson({ imposter, saving, onApply }: ImposterJsonProps) {
   const wire = useMemo(() => pretty(imposterToMb(imposter)), [imposter]);
   const [text, setText] = useState(wire);
 
@@ -80,32 +76,39 @@ export function ImposterJson({
       : { cls: styles.ok, icon: 'check' as const, text: 'valid — apply to load it' };
 
   return (
-    <>
-      <div className={styles.head}>
-        <span className="lbl">
-          Exactly what gets POSTed to <span className="mono">/imposters</span>
-        </span>
-        <div className={styles.spacer} />
-        <span className={`${styles.sync} ${readout.cls}`} aria-live="polite">
-          <Icon name={readout.icon} />
-          {readout.text}
-        </span>
-        {!inSync ? (
-          <Button size="sm" variant="ghost" onClick={() => setText(wire)}>
-            Reload from server
+    <Section
+      title="Whole imposter as JSON"
+      icon={<Icon name="code" />}
+      tools={
+        <>
+          {!inSync ? (
+            <Button size="sm" variant="ghost" onClick={() => setText(wire)}>
+              Reload from server
+            </Button>
+          ) : null}
+          <Button
+            size="sm"
+            icon={<Icon name="check" />}
+            disabled={locked || !parsed.ok || inSync}
+            onClick={() => {
+              if (parsed.ok) onApply(parsed.imposter);
+            }}
+          >
+            {saving ? 'Replacing…' : 'Replace Imposter from JSON'}
           </Button>
-        ) : null}
-        <Button
-          size="sm"
-          icon={<Icon name="check" />}
-          disabled={locked || !parsed.ok || inSync}
-          onClick={() => {
-            if (parsed.ok) onApply(parsed.imposter);
-          }}
-        >
-          {saving ? 'Replacing…' : 'Replace Imposter from JSON'}
-        </Button>
-      </div>
+        </>
+      }
+    >
+      {/*
+        The readout is on a line of its own, not beside those buttons. A parser message
+        carries the part that matters at its end — "line 49 column 28" — so it can be
+        long, and in a wrapping row it pushed Replace down: the control moved because the
+        text grew. Actions keep their place; the message gets room to be read whole.
+      */}
+      <p className={`${styles.sync} ${readout.cls}`} aria-live="polite">
+        <Icon name={readout.icon} />
+        {readout.text}
+      </p>
 
       <CodeEditor
         language="json"
@@ -116,10 +119,11 @@ export function ImposterJson({
       />
 
       <p className={styles.note}>
-        Applying deletes the imposter and creates it again from this text — mountebank has no
-        partial update. Its captured requests do not survive.
+        This is exactly what gets POSTed to <span className="mono">/imposters</span>. Applying
+        deletes the imposter and creates it again from this text — mountebank has no partial update,
+        so its captured requests do not survive.
       </p>
-    </>
+    </Section>
   );
 }
 
