@@ -24,6 +24,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { isProxied, type EnvId, type MbEnvironment } from '../lib/environments';
 import { resolveTarget } from '../lib/mb/reach';
+import { DEMO_BUILD } from '../lib/demo/instance';
 import { plural } from '../lib/format';
 import { clearProxyResponses, clearRequests, describeError } from '../lib/mb/client';
 import { imposterToMb, pretty } from '../lib/mb/model';
@@ -426,70 +427,108 @@ function Instance({ environment }: { environment: MbEnvironment }) {
 
   const allowed = config.isSuccess ? originAllowed(config.data, environment.target) : false;
 
-  const facts: Fact[] = config.isSuccess
+  /*
+   * The demo answers these calls from inside the page, so three of these rows would be
+   * fiction: there is no origin to allow, no uptime, and no process that was started with
+   * anything. Reporting a command line for a process that does not exist is exactly the
+   * kind of confident wrongness the rest of this panel refuses, so the demo says what is
+   * true instead — and says what the row would tell you on an instance you run.
+   */
+  const facts: Fact[] = DEMO_BUILD
     ? [
-        { label: 'Version', value: `mountebank ${config.data.version}`, mono: true },
         {
-          label: 'Config file',
-          value: config.data.options.configfile ?? 'started without one',
+          label: 'Version',
+          value: 'mountebank 2.9.1 — the shape this demo answers in',
           mono: true,
         },
         {
-          label: 'Injection',
-          value: config.data.options.allowInjection ? (
+          label: 'Reached by',
+          value: (
             <Pill tone="ok" dot>
-              allowed
-            </Pill>
-          ) : (
-            <Pill tone="warn" dot>
-              rejected
+              answered inside this tab
             </Pill>
           ),
+          note: 'Nothing is listening. On an instance you run, this row says whether the panel calls it directly or through a host that forwards to it.',
         },
         {
-          /* `--origin` is the CORS flag; this version of mountebank has no
-             allowCORS option, and `GET /config` reports the allowlist as
-             `options.origin` — false when it was started without one. An
-             environment reached through this origin never asks the question. */
-          label: 'Reached by',
-          value:
-            forwardedVia !== null ? (
-              <Pill tone="ok" dot>
-                this page&rsquo;s own host
-              </Pill>
-            ) : allowed ? (
-              <Pill tone="ok" dot>
-                a direct call this instance allows
-              </Pill>
-            ) : (
-              <Pill tone="warn" dot>
-                a direct call this instance does not allow
-              </Pill>
-            ),
-          ...(forwardedVia !== null
-            ? {
-                note: `Every request goes to ${forwardedVia} on this origin and is forwarded from there, so no --origin flag is involved. The panel chose that route itself, from what this host publishes.`,
-              }
-            : allowed
-              ? {}
-              : {
-                  note: 'A direct call needs this instance to allow this origin. Alternatively, have the host that serves this page forward to it — then nothing about the instance has to change.',
-                }),
+          label: 'Injection',
+          value: <Pill dot>not applicable</Pill>,
+          note: 'A real instance either allows injected JavaScript or rejects it. There is no engine here to run any.',
         },
         {
           label: 'Matched stub',
-          value: config.data.options.debug ? (
-            <Pill tone="ok" dot>
-              reported by mountebank
-            </Pill>
-          ) : (
-            <Pill dot>computed by this panel</Pill>
-          ),
+          value: <Pill dot>computed by this panel</Pill>,
+          note: 'The same as against a real instance: mountebank reports the matched stub only with --debug, so the panel evaluates the predicates itself.',
         },
-        { label: 'Uptime', value: uptimeText(config.data.process?.uptime), mono: true },
-        { label: 'Started with', value: cliLine(config.data), mono: true },
+        {
+          label: 'Captured traffic',
+          value: 'seeded, so the Activity screen has something to read',
+        },
       ]
-    : [];
+    : config.isSuccess
+      ? [
+          { label: 'Version', value: `mountebank ${config.data.version}`, mono: true },
+          {
+            label: 'Config file',
+            value: config.data.options.configfile ?? 'started without one',
+            mono: true,
+          },
+          {
+            label: 'Injection',
+            value: config.data.options.allowInjection ? (
+              <Pill tone="ok" dot>
+                allowed
+              </Pill>
+            ) : (
+              <Pill tone="warn" dot>
+                rejected
+              </Pill>
+            ),
+          },
+          {
+            /* `--origin` is the CORS flag; this version of mountebank has no
+             allowCORS option, and `GET /config` reports the allowlist as
+             `options.origin` — false when it was started without one. An
+             environment reached through this origin never asks the question. */
+            label: 'Reached by',
+            value:
+              forwardedVia !== null ? (
+                <Pill tone="ok" dot>
+                  this page&rsquo;s own host
+                </Pill>
+              ) : allowed ? (
+                <Pill tone="ok" dot>
+                  a direct call this instance allows
+                </Pill>
+              ) : (
+                <Pill tone="warn" dot>
+                  a direct call this instance does not allow
+                </Pill>
+              ),
+            ...(forwardedVia !== null
+              ? {
+                  note: `Every request goes to ${forwardedVia} on this origin and is forwarded from there, so no --origin flag is involved. The panel chose that route itself, from what this host publishes.`,
+                }
+              : allowed
+                ? {}
+                : {
+                    note: 'A direct call needs this instance to allow this origin. Alternatively, have the host that serves this page forward to it — then nothing about the instance has to change.',
+                  }),
+          },
+          {
+            label: 'Matched stub',
+            value: config.data.options.debug ? (
+              <Pill tone="ok" dot>
+                reported by mountebank
+              </Pill>
+            ) : (
+              <Pill dot>computed by this panel</Pill>
+            ),
+          },
+          { label: 'Uptime', value: uptimeText(config.data.process?.uptime), mono: true },
+          { label: 'Started with', value: cliLine(config.data), mono: true },
+        ]
+      : [];
 
   return (
     <>
@@ -584,7 +623,6 @@ function Instance({ environment }: { environment: MbEnvironment }) {
               View
             </Button>
           </div>
-
         </div>
       </Section>
 
@@ -619,12 +657,15 @@ function Instance({ environment }: { environment: MbEnvironment }) {
           <div className={styles.fact}>
             <dt>Source</dt>
             <dd>
-              <a className={styles.link} href="https://github.com/gokhanibrikci/mountebank-studio" target="_blank" rel="noreferrer">
+              <a
+                className={styles.link}
+                href="https://github.com/gokhanibrikci/mountebank-studio"
+                target="_blank"
+                rel="noreferrer"
+              >
                 github.com/gokhanibrikci/mountebank-studio
               </a>
-              <span className={styles.factNote}>
-                Issues and pull requests are welcome there.
-              </span>
+              <span className={styles.factNote}>Issues and pull requests are welcome there.</span>
             </dd>
           </div>
         </dl>
