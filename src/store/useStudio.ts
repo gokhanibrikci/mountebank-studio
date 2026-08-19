@@ -30,6 +30,18 @@ interface StudioState {
   welcome: boolean;
   setWelcome: (welcome: boolean) => void;
 
+  /**
+   * Whether this browser has ever been shown the welcome. Persisted, unlike `welcome`
+   * itself, because that screen is worth meeting once rather than on every tab: a run
+   * served by `npx mountebank-studio` is handed a working environment, so without this
+   * marker the panel would either greet nobody or greet the same person forever.
+   *
+   * Set when Start is pressed rather than when the screen appears — a tab closed
+   * halfway through means nobody has read it yet.
+   */
+  greeted: boolean;
+  setGreeted: (greeted: boolean) => void;
+
   /** Visual ⇄ JSON toggle, remembered so it survives navigation. */
   editorView: EditorView;
   setEditorView: (view: EditorView) => void;
@@ -53,6 +65,9 @@ export const useStudio = create<StudioState>()(
       welcome: false,
       setWelcome: (welcome) => set({ welcome }),
 
+      greeted: false,
+      setGreeted: (greeted) => set({ greeted }),
+
       editorView: 'visual',
       setEditorView: (editorView) => set({ editorView }),
 
@@ -70,7 +85,7 @@ export const useStudio = create<StudioState>()(
     {
       name: 'mountebank-studio',
       // toasts and transient UI must not come back from storage
-      partialize: (s) => ({ env: s.env, editorView: s.editorView }),
+      partialize: (s) => ({ env: s.env, editorView: s.editorView, greeted: s.greeted }),
     },
   ),
 );

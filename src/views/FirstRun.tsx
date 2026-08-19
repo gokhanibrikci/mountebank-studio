@@ -60,6 +60,7 @@ export function FirstRun() {
   const toast = useStudio((s) => s.toast);
   const setEnv = useStudio((s) => s.setEnv);
   const setWelcome = useStudio((s) => s.setWelcome);
+  const setGreeted = useStudio((s) => s.setGreeted);
   const { list, add, update, remove } = useEnvironments();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -123,6 +124,7 @@ export function FirstRun() {
     if (picked === undefined) return;
     setEnv(picked.id);
     setWelcome(false);
+    setGreeted(true);
     void navigate(`/${picked.id}/overview`);
   }
 

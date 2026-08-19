@@ -15,6 +15,7 @@ import { persist } from 'zustand/middleware';
 
 import {
   normalise,
+  adoptable,
   seedFromEnv,
   slugify,
   uniqueId,
@@ -34,8 +35,16 @@ interface EnvironmentsState {
    * Adopt a list the host published, but ONLY when this browser has none of its own.
    * A user's edits always win: the point is a first run that works, not a server that
    * keeps overwriting what someone changed.
+   *
+   * Reports whether anything was adopted, because that is exactly the moment worth
+   * greeting somebody on — see `greeted` in the studio store.
    */
-  seed: (list: MbEnvironment[]) => void;
+  seed: (list: MbEnvironment[]) => boolean;
+  /**
+   * The ids a host has already offered this browser, kept so an environment somebody
+   * removed is not handed straight back on the next start.
+   */
+  offered: EnvId[];
   add: (draft: EnvironmentDraft) => MbEnvironment;
   update: (id: EnvId, patch: Partial<EnvironmentDraft>) => void;
   remove: (id: EnvId) => void;
@@ -77,9 +86,18 @@ export const useEnvironments = create<EnvironmentsState>()(
           }),
         }),
 
+      offered: [],
+
       seed: (list) => {
-        if (get().list.length > 0 || list.length === 0) return;
-        set({ list });
+        if (list.length === 0) return false;
+        const fresh = adoptable(get().list, list, get().offered);
+        set({
+          list: [...get().list, ...fresh],
+          /* Every offered id is remembered, including one skipped for duplicating an
+             environment already here: the question must not be asked twice either way. */
+          offered: [...new Set([...get().offered, ...list.map((env) => env.id)])],
+        });
+        return fresh.length > 0;
       },
 
       remove: (id) => set({ list: get().list.filter((e) => e.id !== id) }),

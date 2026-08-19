@@ -152,6 +152,34 @@ export async function seedFromHost(): Promise<MbEnvironment[]> {
 }
 
 /**
+ * Which of a host's published environments this browser should take on.
+ *
+ * The first rule here used to be "adopt only when the browser has none of its own",
+ * which protected a user's edits and quietly broke the common case: anyone who had
+ * used the panel before never saw the instance their own `npx mountebank-studio` had
+ * just started. It opened on whatever they last had — for one person, a staging
+ * instance this host does not forward and cannot reach — while the working instance
+ * sat unlisted at /mb/local.
+ *
+ * So a published environment is ADDED rather than swapped in, and never more than
+ * once: `seen` carries the ids this browser has already been offered, so removing one
+ * is a decision that sticks instead of an argument with the next restart. An id or a
+ * target that already exists is left alone, because two rows reaching one instance is
+ * noise, and nothing a user typed is ever edited or dropped.
+ */
+export function adoptable(
+  existing: MbEnvironment[],
+  published: MbEnvironment[],
+  seen: EnvId[],
+): MbEnvironment[] {
+  const ids = new Set(existing.map((e) => e.id));
+  const targets = new Set(existing.map((e) => normalise(e.target)));
+  return published.filter(
+    (env) => !seen.includes(env.id) && !ids.has(env.id) && !targets.has(normalise(env.target)),
+  );
+}
+
+/**
  * Seed environments for a fresh install, read from VITE_ENVIRONMENTS so a team can
  * pre-provision without touching source. Anything malformed is ignored rather
  * than crashing the app on boot — a bad env var must not lock anyone out.

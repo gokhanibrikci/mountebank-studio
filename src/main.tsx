@@ -15,6 +15,7 @@ import App from './App';
 import { seedFromHost } from './lib/environments';
 import { readyToRoute } from './lib/mb/reach';
 import { useEnvironments } from './store/useEnvironments';
+import { useStudio } from './store/useStudio';
 import './styles/base.css';
 
 /**
@@ -44,11 +45,17 @@ if (!container) throw new Error('index.html is missing its #root element');
 await readyToRoute();
 
 /*
- * A first run served by `npx mountebank-studio` gets its environment from the host
- * that served it, so the panel opens on a working instance instead of an empty
- * welcome. Nothing is adopted when this browser already has a list of its own.
+ * A first run served by `npx mountebank-studio` gets its environment from the host that
+ * served it, so nobody has to type a path this server invented. Nothing is adopted when
+ * this browser already has a list of its own.
+ *
+ * Adopting one still opens the welcome, once. Landing straight in the shell meant the
+ * screen explaining what a mock is made of — and how to stand an instance up — was seen
+ * by nobody who took the one-command route. The environment is listed there as a row,
+ * so it costs a press of Start rather than anything typed.
  */
-useEnvironments.getState().seed(await seedFromHost());
+const adopted = useEnvironments.getState().seed(await seedFromHost());
+if (adopted && !useStudio.getState().greeted) useStudio.getState().setWelcome(true);
 
 createRoot(container).render(
   <StrictMode>
