@@ -27,7 +27,8 @@
     "service-virtualization",
     "test-doubles",
     "stub",
-    "imposter"
+    "imposter",
+    "mbtest"
   ],
   "repository": {
     "type": "git",
@@ -50,7 +51,7 @@
     "prepack": "yarn build"
   },
   "dependencies": {
-    "mountebank": "^2.9.1"
+    "@mbtest/mountebank": "^2.9.4"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.101.4",

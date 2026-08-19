@@ -10,7 +10,7 @@ yarn dev          # http://localhost:5273
 You need a Mountebank instance to point at. If you have none:
 
 ```bash
-npx mountebank@2.9.1 --origin "http://localhost:5273"
+npx @mbtest/mountebank@2.9.4 --origin "http://localhost:5273"
 ```
 
 Then add an environment in the panel with `http://localhost:2525` as the admin API.
@@ -42,7 +42,7 @@ So, if you touch `src/lib/mb/model.ts`:
 - and if the editor cannot draw it, prove that it is carried rather than lost.
 
 `COVERAGE.md` lists what is drawn, what is carried, and how that was verified against
-the real `mountebank@2.9.1` package.
+the real `@mbtest/mountebank` package.
 
 ## Conventions worth knowing
 

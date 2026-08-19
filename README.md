@@ -59,7 +59,7 @@ the CORS question below never comes up. Ctrl-C stops both.
 
 ```
   Mountebank Studio        http://127.0.0.1:5273
-  Started for you          http://127.0.0.1:2525 · mountebank 2.9.1
+  Started for you          http://127.0.0.1:2525 · mountebank 2.9.4
   Reached through          http://127.0.0.1:5273/mb/local — nothing is cross-origin
 ```
 

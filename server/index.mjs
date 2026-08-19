@@ -138,14 +138,29 @@ function parseArgs(argv) {
 
 /* ─────────────────────────────  the mountebank  ─────────────────────────── */
 
-/** Where npm put mountebank's own CLI, or null when it is not installed. */
+/**
+ * Where npm put mountebank's own CLI, or null when it is not installed.
+ *
+ * `@mbtest/mountebank` is the maintained package. Mountebank moved to the
+ * mountebank-testing organisation in 2025 and renamed as it went, and the old
+ * `mountebank` name on npm stopped at 2.9.1 — published August 2023, carrying three
+ * years of dependency advisories that 2.9.2 through 2.9.4 fixed. That is what this
+ * package depends on now.
+ *
+ * The old name is still tried, second, for anyone whose environment already has it: the
+ * admin API this panel speaks to is the same one either way, and refusing to start
+ * because the package is called the older thing would help nobody.
+ */
 function mountebankBin() {
-  try {
-    const require = createRequire(import.meta.url);
-    return require.resolve('mountebank/bin/mb');
-  } catch {
-    return null;
+  const require = createRequire(import.meta.url);
+  for (const name of ['@mbtest/mountebank/bin/mb', 'mountebank/bin/mb']) {
+    try {
+      return require.resolve(name);
+    } catch {
+      /* Not this one; try the next. */
+    }
   }
+  return null;
 }
 
 async function waitForAdminApi(url, attempts = 60) {
@@ -230,7 +245,8 @@ function startMountebank(opts) {
         '',
         '  Mountebank is not installed next to this package.',
         '',
-        '  It is a normal dependency, so this usually means an incomplete install.',
+        '  @mbtest/mountebank is a normal dependency, so this usually means an incomplete',
+        '  install.',
         '  Either reinstall, or point the panel at an instance you already run:',
         '',
         '      npx mountebank-studio --mb-url http://localhost:2525',

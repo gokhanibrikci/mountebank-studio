@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- **Depends on `@mbtest/mountebank` 2.9.4 instead of `mountebank` 2.9.1.** They are the same
+  project: mountebank moved to the mountebank-testing organisation in 2025 and renamed as it
+  went. The old name on npm stopped at 2.9.1, published August 2023, and 2.9.2–2.9.4 are
+  three releases of dependency security updates — which is what the CVE reports against
+  mountebank are about. `npx mountebank-studio` now installs the maintained build.
+
+  The old package is still accepted, second, for anyone whose environment already has it: the
+  admin API is the same either way and refusing to start over a package name would help
+  nobody. All three paths were checked from the packed tarball — both installed picks 2.9.4,
+  only the old one falls back to 2.9.1, neither gives an error that names what to install.
+
+  Every call this panel makes was re-checked against a live 2.9.4 instance before the switch:
+  `/config` and its `options.origin`, both list views, the imposter and stub sub-resources,
+  and the two sweeps all answer in the same shapes.
+
 ## 0.2.1 — 19 August 2026
 
 - **The Postman download moved to the Imposters page header**, beside *New Imposter* and

@@ -27,7 +27,7 @@ describe('the demo instance', () => {
   it('reports a config the panel can read', () => {
     const reply = get('/config');
     expect(reply.status).toBe(200);
-    expect((reply.data as { version: string }).version).toBe('2.9.1');
+    expect((reply.data as { version: string }).version).toBe('2.9.4');
     /* Said plainly rather than flattered: nothing is listening, so nothing is allowed. */
     expect((reply.data as { options: { allowInjection: boolean } }).options.allowInjection).toBe(
       false,

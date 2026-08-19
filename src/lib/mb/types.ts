@@ -2,7 +2,7 @@
  * Two type families live here and must not be confused:
  *
  *  Mb*   — Mountebank's own wire format, exactly as its admin API sends and
- *          accepts it. Verified against mountebank 2.9.1.
+ *          accepts it. Verified against mountebank 2.9.1 and re-checked against @mbtest/mountebank 2.9.4.
  *  UI     — the editable model the visual editor binds to. Flat, id-bearing,
  *          and lossless in both directions (see model.ts + model.test.ts).
  */

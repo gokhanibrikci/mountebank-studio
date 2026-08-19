@@ -1,7 +1,17 @@
-# What this panel covers of Mountebank 2.9.1
+# What this panel covers of Mountebank
+
+> **Which mountebank.** This panel depends on **`@mbtest/mountebank`**, the package the
+> mountebank-testing organisation publishes — currently 2.9.4. The older `mountebank` name
+> on npm stopped at 2.9.1 in August 2023, before the project changed hands, and carries the
+> dependency advisories that 2.9.2–2.9.4 fixed.
+>
+> The tables below were written against the 2.9.1 source, and every call this panel makes
+> was re-checked against a live 2.9.4 instance: `/config` (its `options.origin` included),
+> both list views, the imposter and stub sub-resources, and the two sweeps all answer in the
+> same shapes. Where a version matters to a claim, the claim says so.
 
 Read off the real thing, not from memory: the feature list comes from the
-`mountebank@2.9.1` package (`src/models/predicates.js`, `behaviors.js`,
+`mountebank@2.9.1` source (`src/models/predicates.js`, `behaviors.js`,
 `responseResolver.js`, `mountebank.js` routes, the protocol servers) and the panel
 column comes from `src/lib/mb/{types,model,client}.ts` and the screens that bind to
 them.
@@ -175,7 +185,7 @@ used: read the keys the editor draws into the model, keep the rest in an `extras
 bag, and write the drawn keys first and the carried keys after — so key order
 survives too, and a saved stub is **byte-identical** to what was read.
 
-Verified against a live 2.9.1 instance holding a `CONNECTION_RESET_BY_PEER` stub, a
+Verified against a live instance holding a `CONNECTION_RESET_BY_PEER` stub, a
 `RANDOM_DATA_THEN_CLOSE` stub with `repeat`, and a `proxyAlways` stub with
 `injectHeaders`: all three round-trip byte-identically through the editor's own
 model.

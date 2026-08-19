@@ -92,8 +92,8 @@ export function FirstRun() {
   const command = `mb start --origin "${window.location.origin}"`;
   /* For someone who has no instance at all: npx needs no install and no config. */
   const startCommand = canForward
-    ? 'npx mountebank@2.9.1'
-    : `npx mountebank@2.9.1 --origin "${window.location.origin}"`;
+    ? 'npx @mbtest/mountebank@2.9.4'
+    : `npx @mbtest/mountebank@2.9.4 --origin "${window.location.origin}"`;
 
   function openAdd(): void {
     setEditingId(null);

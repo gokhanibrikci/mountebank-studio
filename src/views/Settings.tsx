@@ -438,7 +438,7 @@ function Instance({ environment }: { environment: MbEnvironment }) {
     ? [
         {
           label: 'Version',
-          value: 'mountebank 2.9.1 — the shape this demo answers in',
+          value: 'mountebank 2.9.4 — the shape this demo answers in',
           mono: true,
         },
         {

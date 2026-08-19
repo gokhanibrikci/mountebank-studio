@@ -60,7 +60,7 @@ function replayable(imposter: MbImposter): MbImposter {
 }
 
 const CONFIG: MbConfig = {
-  version: '2.9.1',
+  version: '2.9.4',
   options: {
     port: 2525,
     /* Said plainly, because the panel reports these and a demo must not claim to be
