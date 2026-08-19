@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.3 — 19 August 2026
+
+Two faults with one cause: the panel decided all-or-nothing what to take from the host
+that served it.
+
+- **The instance your own command started is no longer hidden.** `npx mountebank-studio`
+  publishes the environment that reaches the Mountebank it starts, but the panel adopted
+  that list only when the browser had none of its own. Anyone who had used the panel
+  before therefore opened on whatever they last had — in one report a staging instance
+  this host neither forwards nor can reach, so the first screen was an error while the
+  working instance sat unlisted at `/mb/local`. Same origin, same storage: `yarn dev` and
+  the published server both answer on 5273, so the two lists were never separate.
+
+  A published environment is **added** now, beside what is already there, and never
+  twice. The ids a host has offered are recorded, so removing one is a decision that
+  holds rather than an argument with the next restart. An id or a target already in the
+  list is left alone, and nothing anybody typed is edited or dropped.
+
+- **The welcome screen is met once.** It was skipped whenever an environment existed,
+  which meant the screen explaining what a mock is made of — and how to stand an instance
+  up — was seen by nobody who took the one-command route. It now opens on the run that
+  adopts an environment, with that environment already listed, so it costs a press of
+  **Start** rather than anything typed. Whether it has been seen is remembered across
+  sessions and settled by Start, not by the screen appearing: a tab closed halfway
+  through means nobody has read it yet.
+
+The adoption rule is a pure function with eight tests, and the wiring was driven in
+Chrome across the four states it has — a fresh browser, a returning one that never
+pressed Start, one that has, and one whose environment the user removed.
+
 ## 0.1.2 — 19 August 2026
 
 Documentation and two details of presentation. Nothing in how the panel talks to a
