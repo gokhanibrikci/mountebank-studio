@@ -28,11 +28,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type EnvId } from '../lib/environments';
 import { envOr } from '../store/useEnvironments';
 import { plural } from '../lib/format';
-import { describeError, replaceAll } from '../lib/mb/client';
+import { createImposter, describeError, replaceAll, replaceImposter } from '../lib/mb/client';
+import { imposterToMb } from '../lib/mb/model';
 import type { Imposter } from '../lib/mb/types';
 import { saveJson } from '../lib/download';
 import { toPostmanCollection } from '../lib/postman';
 import { mbKeys, useCreateImposter, useDeleteImposter, useImposters } from '../lib/queries';
+import { ImportModal } from './ImportModal';
 import { useStudio } from '../store/useStudio';
 import { Button, Card, EmptyState, Icon, Modal, PageHead, Pill, Strip, Table } from '../ui';
 import { Failure } from './Failure';
@@ -71,6 +73,59 @@ function nextFreePort(imposters: Imposter[], from: number = FIRST_PORT): number 
  * in one place, but it follows the same contract as every mutation there: success
  * invalidates the environment's whole cache, and both outcomes end in a toast.
  */
+/**
+ * A file of imposters, written one at a time.
+ *
+ * Not `PUT /imposters`: that replaces the whole environment, and the point of this mode is
+ * to leave alone what the file does not mention. So each imposter is created, or — when its
+ * port is already running — deleted and created, which is the only "replace one" mountebank
+ * offers.
+ *
+ * IT REPORTS WHAT ACTUALLY HAPPENED. A loop of writes can fail halfway, and a toast saying
+ * "imported" over a half-written environment would be a lie. Each failure is kept with its
+ * port and the count of what did land is said first, so the next step is obvious.
+ */
+function useImportImposters(env: EnvId) {
+  const queryClient = useQueryClient();
+  const toast = useStudio((s) => s.toast);
+
+  return useMutation<
+    { written: number; failed: Array<{ port: number | undefined; why: string }> },
+    Error,
+    { imposters: Imposter[]; taken: Set<number> }
+  >({
+    mutationFn: async ({ imposters, taken }) => {
+      const failed: Array<{ port: number | undefined; why: string }> = [];
+      let written = 0;
+
+      for (const imposter of imposters) {
+        try {
+          if (taken.has(imposter.port)) await replaceImposter(env, imposter);
+          else await createImposter(env, imposter);
+          written += 1;
+        } catch (error) {
+          failed.push({ port: imposter.port, why: describeError(error) });
+        }
+      }
+      return { written, failed };
+    },
+    onSuccess: ({ written, failed }) => {
+      void queryClient.invalidateQueries({ queryKey: mbKeys.env(env) });
+      if (failed.length === 0) {
+        toast(`${plural(written, 'imposter')} written to ${envOr(env).label}`);
+        return;
+      }
+      const first = failed[0];
+      toast(
+        `${plural(written, 'imposter')} written · ${plural(failed.length, 'refused')}` +
+          (first === undefined ? '' : ` — port ${first.port}: ${first.why}`),
+        'warn',
+      );
+    },
+    onError: (error) => toast(describeError(error), 'err'),
+  });
+}
+
 function useSaveConfig(env: EnvId) {
   const queryClient = useQueryClient();
   const toast = useStudio((s) => s.toast);
@@ -101,6 +156,7 @@ export function Imposters() {
   const create = useCreateImposter(env);
   const remove = useDeleteImposter(env);
   const saveConfig = useSaveConfig(env);
+  const importing = useImportImposters(env);
 
   /**
    * `?new=imposter` keeps the create flow in the URL, so it survives a reload and
@@ -116,6 +172,7 @@ export function Imposters() {
   const canCreate = imposters.isSuccess;
   const [pendingDelete, setPendingDelete] = useState<Imposter | null>(null);
   const [confirmSave, setConfirmSave] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   /*
    * `?new=imposter` on a screen that cannot read the environment would leave the
@@ -222,6 +279,19 @@ export function Imposters() {
           >
             Save Config
           </Button>
+          {/* Both directions live here, next to the list they act on. */}
+          <Button
+            icon={<Icon name="up" size={14} />}
+            onClick={() => setImportOpen(true)}
+            disabled={!canCreate}
+            title={
+              canCreate
+                ? 'Read a file of imposters back in'
+                : `${environment.label} has not answered yet — nothing can be written until it does`
+            }
+          >
+            Import JSON
+          </Button>
           {/* Reading the mocks back out belongs next to the list of them, which is where
               anyone looks for "export all of this" — it was in Settings, under
               Maintenance, where it went unfound. */}
@@ -263,6 +333,21 @@ export function Imposters() {
    */
   const overlays = (
     <>
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        existing={list.map(imposterToMb)}
+        busy={importing.isPending || saveConfig.isPending}
+        onImport={(imposters, mode) => {
+          setImportOpen(false);
+          if (mode === 'replace') {
+            saveConfig.mutate(imposters);
+            return;
+          }
+          importing.mutate({ imposters, taken: new Set(list.map((i) => i.port)) });
+        }}
+      />
+
       <NewImposterModal
         open={creating && canCreate}
         onClose={closeCreate}

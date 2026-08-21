@@ -1,0 +1,154 @@
+/* ============================================================
+   Import: a file, what was understood of it, and what pressing
+   the button will do — in that order, because that is the order
+   the questions arrive in.
+   ============================================================ */
+
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.picked {
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The native control is replaced by a Button that clicks it, so it must stay
+   reachable but out of the layout. `display: none` would take it out of the
+   accessibility tree as well. */
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.problems,
+.summary {
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.problems {
+  border: 1px solid var(--err-line, var(--line));
+  background: var(--err-a, var(--surface-hi));
+  color: var(--tx);
+}
+
+.summary {
+  border: 1px solid var(--line);
+  background: var(--surface-hi);
+  color: var(--tx-2);
+}
+
+.problems ul,
+.summary ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.problemHead,
+.summaryHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-weight: 600;
+  color: var(--tx);
+}
+
+.problemHead svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--err);
+}
+
+.dim {
+  color: var(--tx-3);
+}
+
+/* ---------- the two ways in ---------- */
+.modes {
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+}
+
+.mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.mode:hover {
+  border-color: var(--line-strong, var(--acc-a30));
+}
+
+.mode input {
+  margin-top: 3px;
+  flex: none;
+}
+
+.mode > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+/* ---------- the sentence that has to be read ---------- */
+.consequence {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--tx-2);
+}
+
+.consequence svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--warn);
+}

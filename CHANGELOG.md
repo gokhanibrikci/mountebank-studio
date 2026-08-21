@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Imposters can be read in from a file, not only written out.** *Imposters → Import JSON*
+  takes the document *Settings → Full configuration* shows — mountebank's `--configfile`
+  shape — and the two variants people actually have on disk: a bare array, and a single
+  imposter.
+
+  Nothing is sent until it is understood. The file is parsed as it is pasted or chosen, and
+  the screen says what will happen before the button is pressed: which ports get created,
+  which get replaced, and what in the file is unusable and why, line by line. A bulk write
+  that turns out to be half a write is the worst outcome available here.
+
+  Two ways in, and the difference is said in ports rather than adjectives. **Add, replacing
+  by port** creates everything in the file, replaces an imposter whose port is already
+  running, and leaves anything the file does not mention alone — what a config file in a
+  repository is for. **Replace everything** makes the file the whole environment and names
+  the imposters it will delete. A partial failure reports what did land and which port
+  refused, rather than a toast that says "imported" over half a write.
+
 - **Depends on `@mbtest/mountebank` 2.9.4 instead of `mountebank` 2.9.1.** They are the same
   project: mountebank moved to the mountebank-testing organisation in 2025 and renamed as it
   went. The old name on npm stopped at 2.9.1, published August 2023, and 2.9.2–2.9.4 are
