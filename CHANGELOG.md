@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 19 August 2026
 
 - **Imposters can be read in from a file, not only written out.** *Imposters → Import JSON*
   takes the document *Settings → Full configuration* shows — mountebank's `--configfile`
@@ -18,6 +18,12 @@
   repository is for. **Replace everything** makes the file the whole environment and names
   the imposters it will delete. A partial failure reports what did land and which port
   refused, rather than a toast that says "imported" over half a write.
+
+- **A demo that needs nothing installed** — <https://gokhanibrikci.github.io/mountebank-studio/>.
+  The panel itself, with the admin API answered from inside the browser tab, so a link is as
+  good as an install for a first look. Every screen is the code that talks to a real
+  instance; only the transport is swapped, at the adapter. It says on every screen that
+  nothing is listening.
 
 - **Depends on `@mbtest/mountebank` 2.9.4 instead of `mountebank` 2.9.1.** They are the same
   project: mountebank moved to the mountebank-testing organisation in 2025 and renamed as it
