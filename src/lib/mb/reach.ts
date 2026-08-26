@@ -177,13 +177,26 @@ export const useReach = create<ReachState>()((set, get) => ({
   },
 }));
 
-/** Same instance? Compared without a trailing slash and without case in the host. */
+/** The names for this machine. From a browser they all arrive at the same place. */
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+
+/**
+ * Same instance? Compared without a trailing slash, without case in the host, and with
+ * the loopback names treated as one.
+ *
+ * `http://localhost:2525` and `http://127.0.0.1:2525` are one Mountebank, and code that
+ * says otherwise offers somebody a second row for the instance they already have, or
+ * asks for a forward that exists. Which one somebody typed is not a fact about anything.
+ */
 function sameInstance(a: string, b: string): boolean {
   const key = (raw: string): string => {
     const trimmed = raw.trim().replace(/\/+$/, '');
     try {
       const url = new URL(trimmed);
-      return `${url.protocol}//${url.host.toLowerCase()}${url.pathname.replace(/\/+$/, '')}`;
+      const host = url.hostname.toLowerCase();
+      const machine = LOOPBACK.has(host) ? 'localhost' : host;
+      const port = url.port === '' ? '' : `:${url.port}`;
+      return `${url.protocol}//${machine}${port}${url.pathname.replace(/\/+$/, '')}`;
     } catch {
       return trimmed.toLowerCase();
     }

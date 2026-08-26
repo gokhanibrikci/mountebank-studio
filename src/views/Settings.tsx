@@ -22,8 +22,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { isProxied, normalise, seedFromHost, type EnvId, type MbEnvironment } from '../lib/environments';
-import { resolveTarget } from '../lib/mb/reach';
+import { isProxied, seedFromHost, type EnvId, type MbEnvironment } from '../lib/environments';
+import { readyToRoute, resolveTarget } from '../lib/mb/reach';
 import { DEMO_BUILD } from '../lib/demo/instance';
 import { plural } from '../lib/format';
 import { clearProxyResponses, clearRequests, describeError } from '../lib/mb/client';
@@ -148,18 +148,25 @@ export function Settings() {
   const [offer, setOffer] = useState<MbEnvironment | null>(null);
 
   /* Asked once, when somebody opens this screen, and only when the host has something the
-     list does not: same id AND same address both count as "already got it". */
+     list really does not have. Compared BY INSTANCE rather than by string: `/mb/local`
+     and the `http://127.0.0.1:2525` somebody typed for that same Mountebank are one
+     instance, and a comparison of the two spellings offers a second row for it. That is
+     what happened — the address in the list was the one from the terminal, so the panel
+     kept offering the instance it was already pointed at. `resolveTarget` is what the
+     rest of the panel uses to decide the same thing, so the manifest is awaited first. */
   useEffect(() => {
     let cancelled = false;
-    void seedFromHost().then((published) => {
-      if (cancelled) return;
-      const ids = new Set(list.map((e) => e.id));
-      const targets = new Set(list.map((e) => normalise(e.target)));
-      const missing = published.find(
-        (e) => !ids.has(e.id) && !targets.has(normalise(e.target)),
-      );
-      setOffer(missing ?? null);
-    });
+    void readyToRoute()
+      .then(seedFromHost)
+      .then((published) => {
+        if (cancelled) return;
+        const ids = new Set(list.map((e) => e.id));
+        const reached = new Set(list.map((e) => resolveTarget(e.target)));
+        const missing = published.find(
+          (e) => !ids.has(e.id) && !reached.has(resolveTarget(e.target)),
+        );
+        setOffer(missing ?? null);
+      });
     return () => {
       cancelled = true;
     };
@@ -282,9 +289,14 @@ export function Settings() {
           it belongs to lives.
         */}
         {offer === null ? null : (
-          <Strip tone="info" icon={<Icon name="globe" />} title="This host runs one of its own">
-            The page you are looking at forwards to a Mountebank at{' '}
-            <span className="mono">{offer.target}</span>, and it is not in your list.{' '}
+          <Strip
+            tone="info"
+            icon={<Icon name="globe" />}
+            title="The Mountebank this page serves is not in your list"
+          >
+            This page already reaches one at <span className="mono">{offer.target}</span> — the
+            instance the terminal named when it started. Nothing in the list below points at it,
+            so the panel opens on something else.{' '}
             <Button
               size="sm"
               icon={<Icon name="plus" />}

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.2 — 26 August 2026
+
+- **The offer added in 0.4.1 no longer offers an instance you already have.** It compared
+  address *strings*: the host publishes `/mb/local`, while somebody who typed the address
+  from their own terminal has `http://127.0.0.1:2525`. One Mountebank, two spellings, so
+  the panel offered the instance it was already connected to — and accepting would have
+  made a second row for it. Sameness is decided by instance now, through the same
+  `resolveTarget` the panel uses to route requests, and `localhost`, `127.0.0.1` and
+  `[::1]` count as one machine wherever that question is asked: reaching an instance,
+  registering a forward, and this offer.
+- **And it says what it means.** "This host runs one of its own" explained nothing. Now:
+  *the Mountebank this page serves is not in your list — this page already reaches one at
+  /mb/local, the instance the terminal named when it started. Nothing in the list below
+  points at it, so the panel opens on something else.*
+
 ## 0.4.1 — 19 August 2026
 
 - **Settings no longer crashes when an environment is not a Mountebank.** `GET /config` was
