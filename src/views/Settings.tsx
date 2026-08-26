@@ -107,9 +107,16 @@ function cliLine(config: MbConfig): string {
   if (options.allowInjection) parts.push('--allowInjection');
   if (origins.length > 0) parts.push(`--origin "${origins.join('|')}"`);
   if (options.localOnly) parts.push('--localOnly');
-  if (options.ipWhitelist && options.ipWhitelist.length > 0) {
+  /*
+   * `*` is mountebank's own default, and a line headed "Started with" must not attribute
+   * a default to whoever started it. Anything narrower was a decision and is shown.
+   */
+  if (options.ipWhitelist !== undefined && options.ipWhitelist.join('|') !== '*') {
     parts.push(`--ipWhitelist ${options.ipWhitelist.join('|')}`);
   }
+  /* The flag that decides whether imposters outlive the process, so it belongs in a line
+     claiming to reproduce this instance. */
+  if (options.datadir) parts.push(`--datadir ${options.datadir}`);
   if (options.mock) parts.push('--mock');
   if (options.debug) parts.push('--debug');
   return parts.join(' ');
@@ -222,14 +229,17 @@ export function Settings() {
 
       <Strip tone="info" icon={<Icon name="cog" />} title="What you can change here">
         The environments below live in this browser only — nobody else sees them, and clearing site
-        data forgets them. Each one names a Mountebank admin API, reached one of two ways: a full
-        URL is called <b>directly</b>, which needs that instance to allow this origin (
-        <code className={styles.cmd}>mb start --origin &quot;{origin}&quot;</code>); a path like{' '}
-        <code className={styles.cmd}>/mb/stage</code> is called{' '}
-        <b>through this page&rsquo;s own host</b>, which forwards it — no flag, and nothing about
-        that instance has to change. Everything under this block is read from the instance you are
-        pointed at, or an action that runs against it. A port, a stub or whether requests are
-        recorded belongs to an imposter and is edited on that imposter&rsquo;s own screen.
+        data forgets them. Each one names one Mountebank admin API, and nothing else: an address,
+        the way you would <span className="mono">curl</span> it. How the panel gets there is not
+        part of that and not a choice — if the host serving this page forwards to that instance, as
+        it does for the one <span className="mono">mountebank-studio</span> starts, the call goes{' '}
+        <b>through this page&rsquo;s own host</b> and nothing about the instance has to change;
+        otherwise it is called <b>directly</b>, which needs that instance to allow this origin (
+        <code className={styles.cmd}>mb start --origin &quot;{origin}&quot;</code>). Each
+        environment&rsquo;s own <b>Reached by</b> line below says which of the two it got.
+        Everything under this block is read from the instance you are pointed at, or an action that
+        runs against it. A port, a stub or whether requests are recorded belongs to an imposter and
+        is edited on that imposter&rsquo;s own screen.
       </Strip>
 
       {/* ───────────────────────  the environments  ─────────────────────── */}
@@ -675,8 +685,9 @@ function Instance({ environment }: { environment: MbEnvironment }) {
           <a className={styles.link} href="https://www.mbtest.dev" target="_blank" rel="noreferrer">
             mountebank
           </a>{' '}
-          project. Mountebank itself is MIT-licensed and is not redistributed here: this panel talks
-          to an instance you run.
+          project. Mountebank is MIT-licensed, and no part of it is copied into this panel: it is a
+          dependency, installed from npm and started as its own process — or an instance you
+          already run, if you point this at one.
         </p>
       </Section>
 

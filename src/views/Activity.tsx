@@ -27,7 +27,7 @@ import { getImposter } from '../lib/mb/client';
 import { findMatchingStub } from '../lib/mb/match';
 import { imposterFromMb, pretty } from '../lib/mb/model';
 import type { Imposter, MbRecordedRequest, RecordedRequest } from '../lib/mb/types';
-import { mbKeys, useImposters, type ImposterDetail } from '../lib/queries';
+import { mbKeys, useConfig, useImposters, type ImposterDetail } from '../lib/queries';
 import { sigOf } from '../lib/summaries';
 import { Failure } from './Failure';
 import { useStudio } from '../store/useStudio';
@@ -174,6 +174,11 @@ export function Activity() {
   const navigate = useNavigate();
   const impostersQuery = useImposters(env);
   const imposters = impostersQuery.data ?? [];
+  /* Whether this instance keeps requests regardless of what an imposter asked for, and
+     how many imposters asked for it — the two facts that decide whether this log can
+     ever fill. Read from the instance, not assumed. */
+  const mock = useConfig(env).data?.options.mock;
+  const recording = imposters.filter((imposter) => imposter.recordRequests).length;
 
   // a port is an imposter's identity, so a non-port is not worth a request
   const ports = imposters
@@ -402,10 +407,30 @@ export function Activity() {
             </EmptyState>
           ) : (
             <EmptyState title="Nothing captured yet">
+              {/*
+                What follows has to be read off THIS instance.
+                
+                It used to say "both remote instances run with --mock" — true of the two this
+                panel was first written against, and a claim about somebody else's deployment
+                everywhere since. `--mock` records every request whatever an imposter says, so
+                whether it is on decides whether this screen can ever fill, and the instance
+                reports it in GET /config.
+              */}
               Send a request to one of the {plural(imposters.length, 'imposter')} in{' '}
-              {environment.label} and it appears here. Both remote instances run with{' '}
-              <span className="mono">--mock</span>, so traffic is recorded even where an imposter
-              has <span className="mono">recordRequests: false</span>.
+              {environment.label} and it appears here.{' '}
+              {mock === true ? (
+                <>
+                  This instance runs with <span className="mono">--mock</span>, so what they
+                  receive is kept even where an imposter has{' '}
+                  <span className="mono">recordRequests: false</span>.
+                </>
+              ) : recording === 0 && imposters.length > 0 ? (
+                <>
+                  None of them are recording, though, so nothing will arrive until{' '}
+                  <b>Record requests</b> is on for at least one — it is on the imposter&rsquo;s own
+                  Settings tab.
+                </>
+              ) : null}
             </EmptyState>
           )}
         </>

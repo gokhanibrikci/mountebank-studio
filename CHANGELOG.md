@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.4.6 — 26 August 2026
+
+Every screen's text read back against a running instance, and four claims that were no
+longer true.
+
+- **Activity no longer describes somebody else's deployment.** The empty log said *"both
+  remote instances run with `--mock`, so traffic is recorded even where an imposter has
+  recordRequests: false"* — true of the two instances this panel was first written against,
+  and a statement about strangers' infrastructure everywhere since. It reads the instance
+  now: `--mock` is reported in `GET /config`, so the sentence appears only when it is on,
+  and when nothing is recording it says that instead, with where to turn it on.
+- **Settings no longer says a URL is called directly.** It described two ways to reach an
+  instance and claimed the target's spelling picked between them. Since 0.4.4 the default
+  environment is a URL that is forwarded, so the sentence contradicted the *Reached by* line
+  a few inches below it. It now says what is true: an environment is an address, the road is
+  worked out from what this host publishes, and each row reports which one it got.
+- **"Started with" was missing `--datadir` and inventing `--ipWhitelist *`.** The first is
+  what decides whether imposters outlive the process, and it was absent from a line claiming
+  to reproduce the instance. The second is mountebank's own default, and a line headed
+  *Started with* must not attribute a default to whoever started it.
+- **The licence note is exact.** "Mountebank is not redistributed here: the panel talks to an
+  instance you run" predates this package starting one. Mountebank is a dependency, installed
+  from npm and run as its own process; no part of it is copied into this repository or the
+  published package. Corrected in the panel, the README and NOTICE.
+- README: the reachability section no longer says an environment picks its road by how the
+  target is written, and the two headings say when each road applies rather than who deployed
+  the instance.
+
 ## 0.4.5 — 26 August 2026
 
 - **An environment that names this page is dropped on start, and the drop is announced.**

@@ -129,6 +129,8 @@ export interface MbConfig {
     configfile?: string;
     localOnly?: boolean;
     ipWhitelist?: string[];
+    /** Where imposters are written. Absent when the instance keeps them in memory. */
+    datadir?: string;
     port?: number;
     mock?: boolean;
     debug?: boolean;

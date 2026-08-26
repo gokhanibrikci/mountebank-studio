@@ -44,8 +44,9 @@ and how that was verified against the real package — is in
 
 > **Unofficial.** Mountebank Studio is an independent project. It is not affiliated
 > with, endorsed by, or sponsored by the [mountebank](https://www.mbtest.dev) project.
-> Mountebank itself is MIT-licensed and is not redistributed here: the panel talks to
-> an instance you run.
+> Mountebank is MIT-licensed, and no part of it is copied into this repository: it is a
+> dependency ([`@mbtest/mountebank`](https://www.npmjs.com/package/@mbtest/mountebank)),
+> installed from npm and started as its own process.
 
 ## One command
 
@@ -179,11 +180,15 @@ editable later under **Settings**.
 
 ## How the panel reaches an instance
 
-The build is a static page, so there is no server between you and a Mountebank
-admin API unless you put one there. That leaves two models, and an environment
-picks one just by how its target is written.
+An environment says WHERE an instance is. How the panel gets there is decided per
+request from what the host serving this page publishes — a fact about the deployment,
+not a choice, and not something the spelling of a target controls.
 
-### 1 · Directly — for an instance you start yourself
+There are two roads. `mountebank-studio` is itself a host that forwards, so the
+one-command route takes the second one; a build served as a static page by something
+that forwards nothing takes the first.
+
+### 1 · Directly — when nothing in front of the page forwards there
 
 Target is the instance's own URL:
 
@@ -205,16 +210,17 @@ origin matched, so the API opens to the pages you name rather than to the web:
 mb start --origin "http://localhost:5273|https://mountebank-studio.example.com"
 ```
 
-Cheap and zero-infrastructure, and correct for a Mountebank on your own machine.
-It has one real limit: it only works on instances you can restart.
+Cheap and zero-infrastructure. It has one real limit: it only works on instances you
+can restart.
 
-### 2 · Through this page's own host — for an instance somebody else deployed
+### 2 · Through this page's own host — whenever that host forwards there
 
 Nothing to choose: **the panel takes this route by itself** whenever the host that
 serves it says it forwards to that instance. Keep the instance's own URL in the
-environment; routing is a fact about the deployment, not something a user should
-have to know. (A path can still be entered by hand — `/mb/stage` — for a
-deployment that forwards without publishing a map.)
+environment — that is what `mountebank-studio` publishes for the instance it starts,
+`http://127.0.0.1:2525`, and the panel resolves the road on its own. (A path can still
+be entered by hand — `/mb/stage` — for a deployment that forwards without publishing a
+map.)
 
 Nothing is cross-origin, so CORS never enters the picture and the instance needs
 **no flag, no restart and no change of any kind** — which matters when a DevOps
@@ -298,7 +304,7 @@ anywhere. It holds:
 | Field     | What it is                                                                                                                                                                 |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Name      | What the environment is called throughout the UI.                                                                                                                          |
-| Admin API | Either an absolute `http(s)` URL of the instance's admin port (`2525` by default, not an imposter's port), or a path on this origin (`/mb/stage`) that is forwarded to it. |
+| Admin API | Either an absolute `http(s)` URL of the instance's admin port (`2525` by default, not an imposter's port), or a path on this origin (`/mb/stage`) that is forwarded to it. This page's own address is refused: a panel serves a page, an instance serves an admin API. |
 | Note      | An optional caution shown next to the environment.                                                                                                                         |
 
 That is the whole record. It carried two more fields once — a colour, and a

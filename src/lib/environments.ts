@@ -6,20 +6,24 @@
  * editing source or rebuilding. So an environment is a record the user creates in
  * Settings, kept in this browser (see src/store/useEnvironments.ts).
  *
- * A target can be written two ways, and the difference is the whole story of how
- * the panel reaches an instance:
+ * A target says WHERE an instance is, and nothing about how to get to it. Which road
+ * is taken is worked out per request in src/lib/mb/reach.ts from what the host serving
+ * this page publishes, because that is a fact about the deployment rather than anything
+ * a user should have to choose:
  *
- *   https://mb.example.com   DIRECT. The browser calls that host from this page,
- *                            which is cross-origin, so THAT INSTANCE has to allow
- *                            this origin: `mb start --origin "<this page>"`.
- *                            Right for an instance you start yourself.
+ *   https://mb.example.com   An address. If this origin forwards to that exact
+ *   http://127.0.0.1:2525    instance, the call goes through this page's own host and
+ *                            nothing is cross-origin — no flag, nothing about the
+ *                            instance changes. If it does not, the browser calls it
+ *                            directly, which is cross-origin, so THAT INSTANCE has to
+ *                            allow this origin: `mb start --origin "<this page>"`.
  *
- *   /mb/stage                THROUGH THIS ORIGIN. The panel calls its own host,
- *                            which forwards to the instance (an nginx `location`,
- *                            or the dev server's proxy). Nothing is cross-origin,
- *                            so CORS never applies and the instance needs no flag
- *                            at all — nobody has to touch how it was installed.
- *                            Right for an instance somebody else deployed.
+ *   /mb/stage                A road, given directly. Right when something in front of
+ *                            this page forwards to an instance and publishes nothing
+ *                            about it — an nginx `location`, or a dev server's proxy.
+ *
+ * The panel's own address is neither, and `isOwnAddress` below refuses it: a panel
+ * serves a page, an instance serves an admin API on its own port.
  *
  * Note that CORS is a browser rule and not access control either way: anything
  * that can reach the host over the network can still call the API. Use `--apikey`
@@ -39,9 +43,11 @@ export interface MbEnvironment {
   id: EnvId;
   label: string;
   /**
-   * Where the admin API is, as an absolute URL (`https://mb.example.com`) for a
-   * direct call, or as a path on this origin (`/mb/stage`) when something in front
-   * of this page forwards to it. See the note at the top of this file.
+   * Where the admin API is: an absolute URL (`http://127.0.0.1:2525`), or a path on
+   * this origin (`/mb/stage`) when something in front of this page forwards to an
+   * instance without publishing it. Whether a URL is called directly or through this
+   * origin is not recorded here — it is decided per request from what the host
+   * publishes. See the note at the top of this file.
    */
   target: string;
   /**

@@ -1,5 +1,9 @@
 /**
- * The JSON tab: exactly what gets POSTed to `/imposters`, editable.
+ * The whole imposter as JSON — exactly what gets POSTed to `/imposters`, editable.
+ *
+ * It was a tab of its own until 0.2.0. It is a section on the imposter's Settings tab
+ * now: reading the document and changing a field are the same job, and a tab that only
+ * ever showed one text box was a place to get lost in.
  *
  * Two things this screen is careful about.
  *

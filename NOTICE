@@ -8,5 +8,8 @@ Mountebank Studio is an independent project. It is not affiliated with, endorsed
 by, or sponsored by the mountebank project (https://www.mbtest.dev). "mountebank"
 is used only to describe what this panel connects to.
 
-mountebank itself is MIT-licensed, Copyright (c) 2013 mountebank, and is NOT
-redistributed as part of this repository — the panel talks to an instance you run.
+mountebank itself is MIT-licensed, Copyright (c) 2013 mountebank. No part of it is
+copied into this repository or into the published package. It is declared as a
+dependency (@mbtest/mountebank), installed from npm by whoever installs this, and run
+as its own process — or replaced entirely by an instance you already run, with
+--mb-url.
