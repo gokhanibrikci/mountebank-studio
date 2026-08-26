@@ -130,11 +130,16 @@ function useSaveConfig(env: EnvId) {
   const queryClient = useQueryClient();
   const toast = useStudio((s) => s.toast);
 
-  return useMutation<unknown, Error, Imposter[]>({
-    mutationFn: (imposters) => replaceAll(env, imposters),
-    onSuccess: (_data, imposters) => {
+  return useMutation<unknown, Error, { imposters: Imposter[]; removed: number[] }>({
+    mutationFn: ({ imposters }) => replaceAll(env, imposters),
+    onSuccess: (_data, { imposters, removed }) => {
       void queryClient.invalidateQueries({ queryKey: mbKeys.env(env) });
-      toast(`${plural(imposters.length, 'imposter')} written to ${envOr(env).label}`);
+      /* A whole-config write can delete as well as create, and a toast that only counts
+         what arrived would leave the deletion to be discovered later. */
+      toast(
+        `${plural(imposters.length, 'imposter')} written to ${envOr(env).label}` +
+          (removed.length === 0 ? '' : ` · ${plural(removed.length, 'imposter')} removed (${removed.join(', ')})`),
+      );
     },
     onError: (error) => toast(describeError(error), 'err'),
   });
@@ -338,10 +343,10 @@ export function Imposters() {
         onClose={() => setImportOpen(false)}
         existing={list.map(imposterToMb)}
         busy={importing.isPending || saveConfig.isPending}
-        onImport={(imposters, mode) => {
+        onImport={(imposters, mode, removedPorts) => {
           setImportOpen(false);
           if (mode === 'replace') {
-            saveConfig.mutate(imposters);
+            saveConfig.mutate({ imposters, removed: removedPorts });
             return;
           }
           importing.mutate({ imposters, taken: new Set(list.map((i) => i.port)) });
@@ -404,7 +409,8 @@ export function Imposters() {
               icon={<Icon name="save" size={14} />}
               disabled={saveConfig.isPending}
               onClick={() => {
-                saveConfig.mutate(list);
+                /* Nothing is removed here: this writes the list the panel is showing. */
+                saveConfig.mutate({ imposters: list, removed: [] });
                 setConfirmSave(false);
               }}
             >

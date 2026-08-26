@@ -52,7 +52,7 @@ export interface ImportModalProps {
    * on this screen takes. The caller decides how to send them: one at a time, or all at
    * once as the whole configuration.
    */
-  onImport: (imposters: Imposter[], mode: ImportMode) => void;
+  onImport: (imposters: Imposter[], mode: ImportMode, removedPorts: number[]) => void;
 }
 
 const EMPTY: ParsedImport = { shape: null, imposters: [], problems: [] };
@@ -67,6 +67,14 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
   const [text, setText] = useState('');
   const [mode, setMode] = useState<ImportMode>('merge');
   const [fileName, setFileName] = useState<string | null>(null);
+  /**
+   * Replacing everything asks twice.
+   *
+   * One press on a radio and one on a button was enough to empty an environment that other
+   * people may be using, and the sentence explaining it sat above the button rather than in
+   * it. The second press names what goes.
+   */
+  const [confirming, setConfirming] = useState(false);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   /* Every opening starts empty: a file left over from last time is a way to write the
@@ -76,6 +84,7 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
     setText('');
     setMode('merge');
     setFileName(null);
+    setConfirming(false);
   }, [open]);
 
   const parsed = useMemo(() => (text.trim() === '' ? EMPTY : parseImposterJson(text)), [text]);
@@ -99,7 +108,12 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
 
   function submit(): void {
     if (!usable) return;
-    onImport(parsed.imposters.map(imposterFromMb), mode);
+    /* Deleting somebody else's imposters is not a thing to do on one press. */
+    if (mode === 'replace' && removed.length > 0 && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    onImport(parsed.imposters.map(imposterFromMb), mode, removed.map((i) => i.port));
   }
 
   /** What the button is about to do, in ports rather than adjectives. */
@@ -134,9 +148,11 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
           >
             {busy
               ? 'Writing…'
-              : mode === 'replace'
-                ? 'Replace Everything'
-                : `Import ${plural(parsed.imposters.length, 'imposter')}`}
+              : mode !== 'replace'
+                ? `Import ${plural(parsed.imposters.length, 'imposter')}`
+                : confirming
+                  ? `Yes, delete ${plural(removed.length, 'imposter')} and replace`
+                  : 'Replace Everything'}
           </Button>
         </>
       }
@@ -208,7 +224,10 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
                 type="radio"
                 name="import-mode"
                 checked={mode === 'merge'}
-                onChange={() => setMode('merge')}
+                onChange={() => {
+                  setMode('merge');
+                  setConfirming(false);
+                }}
               />
               <span>
                 <b>Add, replacing by port</b>
@@ -224,7 +243,10 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
                 type="radio"
                 name="import-mode"
                 checked={mode === 'replace'}
-                onChange={() => setMode('replace')}
+                onChange={() => {
+                  setMode('replace');
+                  setConfirming(false);
+                }}
               />
               <span>
                 <b>Replace everything</b>
@@ -241,10 +263,22 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
             </label>
           </fieldset>
 
-          <p className={styles.consequence}>
-            <Icon name="bolt" />
-            This will {consequence}. Captured requests do not survive a replaced imposter —
-            mountebank has no partial update.
+          <p className={confirming ? styles.confirming : styles.consequence}>
+            <Icon name={confirming ? 'alert' : 'bolt'} />
+            {confirming ? (
+              <>
+                <b>
+                  {plural(removed.length, 'imposter')} will be deleted:{' '}
+                  {removed.map((i) => i.name ?? `port ${i.port}`).join(', ')}
+                </b>{' '}
+                — press again to go ahead, or pick the other mode to keep them.
+              </>
+            ) : (
+              <>
+                This will {consequence}. Captured requests do not survive a replaced imposter —
+                mountebank has no partial update.
+              </>
+            )}
           </p>
         </>
       ) : null}

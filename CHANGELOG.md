@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1 — 19 August 2026
+
+- **Importing with *Replace everything* now asks twice, and names what it will delete.** One
+  press on a radio and one on a button was enough to empty an environment other people may be
+  using, with the explanation sitting above the button rather than in it. The first press turns
+  the button into *Yes, delete 2 imposters and replace* over a line naming them by name. The
+  other mode — *Add, replacing by port* — is unchanged and still touches only the ports the
+  file mentions.
+- **A whole-config write says what it removed.** The toast counted what arrived and left the
+  deletion to be discovered later; it now reads `4 imposters written · 2 imposters removed
+  (7101, 7102)`.
+
 ## 0.3.0 — 19 August 2026
 
 - **Imposters can be read in from a file, not only written out.** *Imposters → Import JSON*
