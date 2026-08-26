@@ -157,14 +157,29 @@ export const addStub = async (
   return (await http(env).post<MbImposter>(`/imposters/${port}/stubs`, payload)).data;
 };
 
+/**
+ * Replace one stub — and note the body: the stub ITSELF, not `{ stub }`.
+ *
+ * The three stub endpoints do not agree on their envelope, and mountebank's own source is
+ * the only place that says so:
+ *
+ *     POST /imposters/:p/stubs          newStub = request.body.stub   → { stub, index }
+ *     PUT  /imposters/:p/stubs/:index   newStub = request.body        → the stub, bare
+ *     PUT  /imposters/:p/stubs          newStubs = request.body.stubs → { stubs }
+ *
+ * This sent `{ stub }` like its neighbours, so every save of an edited stub came back
+ * `400 'responses' must be a non-empty array` — mountebank read the wrapper as the stub and
+ * found no responses in it. It shipped that way because the tests either check the model
+ * conversion or create imposters whole; nothing exercised this one call against a running
+ * instance. There is a CI assertion for it now.
+ */
 export const updateStub = async (
   env: EnvId,
   port: number,
   index: number,
   stub: Stub,
 ): Promise<MbImposter> =>
-  (await http(env).put<MbImposter>(`/imposters/${port}/stubs/${index}`, { stub: stubToMb(stub) }))
-    .data;
+  (await http(env).put<MbImposter>(`/imposters/${port}/stubs/${index}`, stubToMb(stub))).data;
 
 export const deleteStub = async (env: EnvId, port: number, index: number): Promise<MbImposter> =>
   (await http(env).delete<MbImposter>(`/imposters/${port}/stubs/${index}`)).data;

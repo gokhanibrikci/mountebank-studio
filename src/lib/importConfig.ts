@@ -76,6 +76,26 @@ function check(candidate: unknown, where: string): { imposter?: MbImposter; prob
     return { problem: { where, what: 'stubs is not a list' } };
   }
 
+  /*
+   * Mountebank refuses a stub whose `responses` is missing, not an array, or empty — the
+   * whole imposter is rejected with `'responses' must be a non-empty array`. Measured
+   * against 2.9.4 on all three write endpoints. Catching it here means the file is reported
+   * before anything is sent, rather than one imposter failing mid-import.
+   */
+  const stubs = (row.stubs ?? []) as unknown[];
+  for (const [at, stub] of stubs.entries()) {
+    const responses =
+      typeof stub === 'object' && stub !== null ? (stub as { responses?: unknown }).responses : null;
+    if (!Array.isArray(responses) || responses.length === 0) {
+      return {
+        problem: {
+          where,
+          what: `stub ${at + 1} has no responses — mountebank refuses a stub whose 'responses' is not a non-empty array`,
+        },
+      };
+    }
+  }
+
   return { imposter: row as unknown as MbImposter };
 }
 

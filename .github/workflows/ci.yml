@@ -97,6 +97,40 @@ jobs:
           echo "— and the imposter it created answers"
           curl -fsS -m 5 http://127.0.0.1:6399/ | grep -q ok
 
+          echo "— the stub endpoints keep their envelopes"
+          # These three shapes are mountebank's, not ours, and they do not agree with each
+          # other: POST wants { stub }, PUT wants the stub itself, and a stub with no
+          # responses is refused everywhere. Sending { stub } to PUT is exactly the bug that
+          # made every save of an edited stub fail, so it is asserted here against a live
+          # instance rather than trusted to a comment.
+          curl -fsS -m 10 -X POST http://127.0.0.1:5399/mb/local/imposters \
+            -H 'Content-Type: application/json' \
+            -d '{"port":6398,"protocol":"http","stubs":[{"predicates":[{"equals":{"path":"/a"}}],"responses":[{"is":{"body":"A"}}]}]}' \
+            -o /dev/null
+          bare='{"predicates":[{"equals":{"path":"/b"}}],"responses":[{"is":{"body":"B"}}]}'
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 -X PUT \
+            http://127.0.0.1:5399/mb/local/imposters/6398/stubs/0 \
+            -H 'Content-Type: application/json' -d "$bare")
+          [ "$code" = "200" ] || { echo "::error::PUT stubs/:index must take the bare stub, got $code"; exit 1; }
+          [ "$(curl -fsS -m 5 http://127.0.0.1:6398/b)" = "B" ] || { echo "::error::the edited stub does not answer"; exit 1; }
+
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 -X PUT \
+            http://127.0.0.1:5399/mb/local/imposters/6398/stubs/0 \
+            -H 'Content-Type: application/json' -d "{\"stub\":$bare}")
+          [ "$code" = "400" ] || { echo "::error::a wrapped stub should be refused, got $code"; exit 1; }
+
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 -X POST \
+            http://127.0.0.1:5399/mb/local/imposters/6398/stubs \
+            -H 'Content-Type: application/json' -d "$bare")
+          [ "$code" = "400" ] || { echo "::error::POST stubs needs the { stub } wrapper, got $code"; exit 1; }
+
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 -X POST \
+            http://127.0.0.1:5399/mb/local/imposters/6398/stubs \
+            -H 'Content-Type: application/json' -d '{"stub":{"responses":[]}}')
+          [ "$code" = "400" ] || { echo "::error::a stub with no responses should be refused, got $code"; exit 1; }
+
+          curl -fsS -m 5 -X DELETE http://127.0.0.1:5399/mb/local/imposters/6398 -o /dev/null
+
           echo "— it will take a forward, and refuses the three things it must"
           curl -fsS -m 5 http://127.0.0.1:5399/mb/forwarding | grep -q '"enabled":true'
           # The upstream it already forwards keeps the name it has: asking twice for one

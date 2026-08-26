@@ -90,6 +90,25 @@ const errorReply = (status: number, code: string, message: string): Reply => ({
 const noSuchImposter = (port: number): Reply =>
   errorReply(404, 'no such resource', `Try POSTing to /imposters first? There is no imposter on port ${port}.`);
 
+/**
+ * The one rule mountebank enforces on every stub, in its own words.
+ *
+ * A stub with no responses is refused wherever it is sent — POST /imposters, POST stubs and
+ * PUT stubs/:index all answer `400 'responses' must be a non-empty array`. The demo has to
+ * refuse it too: something that can be built here and not on a real instance is worse than
+ * a missing feature, because it is only discovered later.
+ */
+function badStub(stub: unknown): string | null {
+  if (typeof stub !== 'object' || stub === null || Array.isArray(stub)) return 'not an object';
+  const responses = (stub as { responses?: unknown }).responses;
+  /* Present, an array, and not empty — measured against 2.9.4, which refuses a stub with no
+     `responses` key at all rather than falling back to the default response. */
+  if (!Array.isArray(responses) || responses.length === 0) {
+    return "'responses' must be a non-empty array";
+  }
+  return null;
+}
+
 /** `{stub}` / `{stubs}` bodies, without trusting the shape. */
 function stubsFrom(body: unknown, key: 'stub' | 'stubs'): MbStub[] | null {
   if (typeof body !== 'object' || body === null) return null;
@@ -133,6 +152,10 @@ export function handle(
       }
       if (byPort(wanted.port) !== undefined) {
         return errorReply(400, 'resource conflict', `Port ${wanted.port} is already in use.`);
+      }
+      for (const stub of wanted.stubs ?? []) {
+        const bad = badStub(stub);
+        if (bad !== null) return errorReply(400, 'bad data', bad);
       }
       const created: MbImposter = { ...wanted, numberOfRequests: 0, requests: [] };
       imposters = [...imposters, created].sort((a, b) => a.port - b.port);
@@ -187,7 +210,13 @@ export function handle(
   if (parts[2] === 'stubs' && parts.length === 3) {
     if (verb === 'POST') {
       const added = stubsFrom(body, 'stub');
-      if (added === null) return errorReply(400, 'bad data', 'Send { stub: { … } }.');
+      /* mountebank's own message, because a demo that words its refusals differently
+         teaches the wrong error to look for. */
+      if (added === null) return errorReply(400, 'bad data', "must contain 'stub' field");
+      for (const stub of added) {
+        const bad = badStub(stub);
+        if (bad !== null) return errorReply(400, 'bad data', bad);
+      }
       const at = indexFrom(body, stubs.length);
       const next = [...stubs];
       next.splice(Math.max(0, Math.min(at, stubs.length)), 0, ...added);
@@ -196,6 +225,10 @@ export function handle(
     if (verb === 'PUT') {
       const all = stubsFrom(body, 'stubs');
       if (all === null) return errorReply(400, 'bad data', 'Send { stubs: [ … ] }.');
+      for (const stub of all) {
+        const bad = badStub(stub);
+        if (bad !== null) return errorReply(400, 'bad data', bad);
+      }
       return write(all);
     }
   }
@@ -207,8 +240,19 @@ export function handle(
       return errorReply(400, 'bad data', `This imposter has no stub at index ${parts[3]}.`);
     }
     if (verb === 'PUT') {
-      const replacement = stubsFrom(body, 'stub');
-      if (replacement === null) return errorReply(400, 'bad data', 'Send { stub: { … } }.');
+      /*
+       * The body is the STUB, not `{ stub }` — mountebank's putStub reads `request.body`
+       * directly, while postStub reads `request.body.stub`. The demo mirrored the panel's
+       * mistake rather than mountebank's contract, which is the exact drift the header of
+       * this file warns about: a demo that agrees with a bug hides it.
+       */
+      const replacement =
+        typeof body === 'object' && body !== null && !Array.isArray(body)
+          ? [body as MbStub]
+          : null;
+      if (replacement === null) return errorReply(400, 'bad data', 'Send the stub as the body.');
+      const bad = badStub(replacement[0]);
+      if (bad !== null) return errorReply(400, 'bad data', bad);
       const next = [...stubs];
       next.splice(index, 1, ...replacement);
       return write(next);

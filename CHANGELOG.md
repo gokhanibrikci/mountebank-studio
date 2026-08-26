@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.3.2 — 19 August 2026
+
+- **Saving an edited stub works.** It never had: `PUT /imposters/:port/stubs/:index` was sent
+  as `{ stub: … }`, and mountebank reads that endpoint's body as the stub itself, so every
+  save came back `400 'responses' must be a non-empty array` — mountebank had read the
+  wrapper and found no responses in it. The three stub endpoints do not agree on their
+  envelope, and only mountebank's source says so:
+
+  | endpoint | body |
+  | --- | --- |
+  | `POST /imposters/:p/stubs` | `{ stub, index }` |
+  | `PUT /imposters/:p/stubs/:index` | the stub, bare |
+  | `PUT /imposters/:p/stubs` | `{ stubs }` |
+
+  Driven through the panel against a live instance: the request now carries the bare stub, the
+  predicate changes, and the imposter answers on the new path. CI asserts all four shapes —
+  including the two refusals — against a running instance, because nothing but a running
+  instance can catch this.
+
+- **The demo agreed with the bug.** It accepted `{ stub }` on that endpoint and accepted stubs
+  with no responses, both of which a real instance refuses — a demo that agrees with a bug
+  hides it. It now enforces mountebank's rule, in mountebank's words.
+
+- **Import says so before writing.** A stub whose `responses` is missing, not an array, or
+  empty is refused by mountebank and takes its whole imposter down with it, so the file is
+  reported rather than half-written.
+
 ## 0.3.1 — 19 August 2026
 
 - **Importing with *Replace everything* now asks twice, and names what it will delete.** One

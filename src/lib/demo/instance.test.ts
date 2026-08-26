@@ -86,7 +86,7 @@ describe('the demo instance', () => {
   });
 
   it('adds a stub, at the end or at an index', () => {
-    const stub = { predicates: [{ equals: { path: '/new' } }], responses: [] };
+    const stub = { predicates: [{ equals: { path: '/new' } }], responses: [{ is: { body: 'n' } }] };
     expect(handle('POST', '/imposters/4546/stubs', {}, { stub }).status).toBe(200);
     expect(one(4546).stubs).toHaveLength(3);
     expect(one(4546).stubs?.[2]?.predicates?.[0]).toEqual({ equals: { path: '/new' } });
@@ -96,8 +96,10 @@ describe('the demo instance', () => {
   });
 
   it('replaces and deletes one stub by index', () => {
-    const stub = { predicates: [{ equals: { path: '/only' } }], responses: [] };
-    handle('PUT', '/imposters/4546/stubs/0', {}, { stub });
+    const stub = { predicates: [{ equals: { path: '/only' } }], responses: [{ is: { body: 'o' } }] };
+    /* The body is the stub itself here — mountebank's putStub reads request.body, and this
+       asymmetry with postStub is what a real instance enforces. */
+    handle('PUT', '/imposters/4546/stubs/0', {}, stub);
     expect(one(4546).stubs?.[0]?.predicates?.[0]).toEqual({ equals: { path: '/only' } });
 
     handle('DELETE', '/imposters/4546/stubs/0', {}, undefined);
@@ -111,13 +113,39 @@ describe('the demo instance', () => {
 
   it('refuses a stub index that is not there', () => {
     expect(handle('DELETE', '/imposters/4545/stubs/99', {}, undefined).status).toBe(400);
-    expect(handle('PUT', '/imposters/4545/stubs/-1', {}, { stub: {} }).status).toBe(400);
+    expect(handle('PUT', '/imposters/4545/stubs/-1', {}, {}).status).toBe(400);
   });
 
   it('clears captured requests, and the count with them', () => {
     handle('DELETE', '/imposters/4545/savedRequests', {}, undefined);
     expect(one(4545).requests).toEqual([]);
     expect(list()[0]?.numberOfRequests).toBe(0);
+  });
+
+  it('refuses the shapes a real instance refuses', () => {
+    /*
+     * The bug this pins down: the panel sent `{ stub: … }` to PUT stubs/:index, mountebank
+     * read the wrapper as the stub, found no responses in it and answered
+     * 400 "'responses' must be a non-empty array". The demo used to accept it, which is how
+     * a demo hides a bug instead of exposing it. All four messages are mountebank's own.
+     */
+    const wrapped = { stub: { predicates: [], responses: [{ is: { body: 'x' } }] } };
+    const put = handle('PUT', '/imposters/4546/stubs/0', {}, wrapped);
+    expect(put.status).toBe(400);
+    expect(JSON.stringify(put.data)).toContain("'responses' must be a non-empty array");
+
+    /* POST is the other way round: it REQUIRES the wrapper. */
+    const bare = handle('POST', '/imposters/4546/stubs', {}, { responses: [{ is: {} }] });
+    expect(bare.status).toBe(400);
+    expect(JSON.stringify(bare.data)).toContain("must contain 'stub' field");
+
+    /* And a stub with no responses is refused wherever it is sent. */
+    const empty = { predicates: [], responses: [] };
+    expect(handle('POST', '/imposters/4546/stubs', {}, { stub: empty }).status).toBe(400);
+    expect(handle('PUT', '/imposters/4546/stubs/0', {}, empty).status).toBe(400);
+    expect(
+      handle('POST', '/imposters', {}, { port: 8123, protocol: 'http', stubs: [empty] }).status,
+    ).toBe(400);
   });
 
   it('says 501 for anything the panel does not ask for, rather than pretending', () => {

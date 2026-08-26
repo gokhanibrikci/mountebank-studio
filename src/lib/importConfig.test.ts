@@ -10,7 +10,12 @@ import { describe, expect, it } from 'vitest';
 import { countStubs, parseImposterJson, portsInUse } from './importConfig';
 import type { MbImposter } from './mb/types';
 
-const orders = { port: 4545, protocol: 'http', name: 'orders', stubs: [{ responses: [] }] };
+const orders = {
+  port: 4545,
+  protocol: 'http',
+  name: 'orders',
+  stubs: [{ responses: [{ is: { body: 'o' } }] }],
+};
 const billing = { port: 4546, protocol: 'http', name: 'billing', stubs: [] };
 
 describe('parseImposterJson', () => {
@@ -81,6 +86,16 @@ describe('parseImposterJson', () => {
     expect(out.problems[0]?.what).toContain('already used by imposter 1');
   });
 
+  it('refuses a stub with no responses, in mountebank\'s words', () => {
+    /* Measured against 2.9.4: a missing, non-array or empty `responses` gets the whole
+       imposter rejected, so the file says so before anything is written. */
+    for (const stubs of [[{}], [{ responses: [] }], [{ responses: 'no' }]]) {
+      const out = parseImposterJson(JSON.stringify([{ port: 4545, protocol: 'http', stubs }]));
+      expect(out.imposters).toEqual([]);
+      expect(out.problems[0]?.what).toContain('no responses');
+    }
+  });
+
   it('refuses stubs that are not a list', () => {
     const out = parseImposterJson(JSON.stringify([{ port: 4545, protocol: 'http', stubs: {} }]));
     expect(out.imposters).toEqual([]);
@@ -117,7 +132,9 @@ describe('what the screen has to say before writing', () => {
 
   it('counts the stubs, so the sentence can say how much is arriving', () => {
     const out = parseImposterJson(
-      JSON.stringify({ imposters: [orders, { ...billing, stubs: [{}, {}] }] }),
+      JSON.stringify({
+        imposters: [orders, { ...billing, stubs: [{ responses: [{ is: {} }] }, { responses: [{ is: {} }] }] }],
+      }),
     );
     expect(countStubs(out.imposters)).toBe(3);
   });
