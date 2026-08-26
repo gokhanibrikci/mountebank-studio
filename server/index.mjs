@@ -33,6 +33,7 @@ import { readFile } from 'node:fs/promises';
 import http from 'node:http';
 import https from 'node:https';
 import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -80,6 +81,10 @@ const HELP = `
     --port <n>         serve the panel here                      (default 5273)
     --mb-port <n>      start Mountebank here                     (default 2525)
     --mb-url <url>     use a Mountebank ALREADY running there, and start none
+    --datadir <path>   where the imposters you create are kept between runs
+                       (default ~/.mountebank-studio/local-<mb-port>)
+    --memory           do not keep them: the instance holds everything in memory and
+                       loses it when you stop it
     --allow-injection  let stubs run JavaScript. This is code execution: only do
                        it on an instance you would trust with a shell
     --insecure         do not verify the TLS certificate of --mb-url. For an instance
@@ -94,6 +99,8 @@ const HELP = `
     npx mountebank-studio --port 8080 --mb-port 3000
     npx mountebank-studio --mb-url http://localhost:2525
     npx mountebank-studio --mb-url https://mountebank.example.com
+    npx mountebank-studio --datadir ./mocks
+    npx mountebank-studio --memory
 `;
 
 function parseArgs(argv) {
@@ -103,6 +110,9 @@ function parseArgs(argv) {
     mbUrl: null,
     allowInjection: false,
     insecure: false,
+    /* null means "work it out from the port"; '' means the user asked for memory. */
+    datadir: null,
+    memory: false,
     host: '127.0.0.1',
   };
 
@@ -124,6 +134,8 @@ function parseArgs(argv) {
     else if (arg === '--mb-url') opts.mbUrl = next().replace(/\/+$/, '');
     else if (arg === '--allow-injection') opts.allowInjection = true;
     else if (arg === '--insecure') opts.insecure = true;
+    else if (arg === '--datadir') opts.datadir = next();
+    else if (arg === '--memory') opts.memory = true;
     else if (arg === '--host') opts.host = next();
     else throw new Error(`unknown option ${arg}`);
   }
@@ -134,6 +146,26 @@ function parseArgs(argv) {
     }
   }
   return opts;
+}
+
+/**
+ * Where the imposters you create are kept.
+ *
+ * KEPT BY DEFAULT, and that is the point. Mountebank holds imposters in memory unless it is
+ * given a --datadir, so closing the terminal used to throw away everything built in the
+ * session — with nothing on screen saying it would. For a panel whose whole job is building
+ * mocks by hand, losing them on Ctrl-C is the wrong default.
+ *
+ * The path is under the user's home rather than the working directory, because "where I ran
+ * it from" is not something anyone remembers, and it is keyed by the mountebank port, since
+ * that is what identifies the instance: `--mb-port 3000` is a different instance and gets a
+ * different store. `--datadir` puts it anywhere — a project directory, if these mocks belong
+ * to a repository — and `--memory` opts out for a throwaway session.
+ */
+function dataDirFor(opts) {
+  if (opts.memory) return null;
+  if (opts.datadir !== null) return opts.datadir;
+  return join(homedir(), '.mountebank-studio', `local-${opts.mbPort}`);
 }
 
 /* ─────────────────────────────  the mountebank  ─────────────────────────── */
@@ -263,6 +295,10 @@ function startMountebank(opts) {
    */
   const args = [bin, '--port', String(opts.mbPort), '--localOnly'];
   if (opts.allowInjection) args.push('--allowInjection');
+
+  /* Mountebank creates the directory, nested parents included. */
+  const datadir = dataDirFor(opts);
+  if (datadir !== null) args.push('--datadir', datadir);
 
   const child = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
   pipeChild(child);
@@ -626,6 +662,16 @@ async function main() {
         `  ${label('Mountebank Studio')}${origin}`,
         `  ${label(opts.mbUrl === null ? 'Started for you' : 'Using your instance')}${upstream} · ${version}`,
         `  ${label('Reached through')}${origin}/mb/${ROUTE} — nothing is cross-origin`,
+        /*
+         * Where the imposters go, said every time. A kept directory nobody can find is not
+         * much better than no directory, and the memory case has to be louder than silence:
+         * that is the one where closing this window loses work.
+         */
+        opts.mbUrl !== null
+          ? ''
+          : dataDirFor(opts) === null
+            ? `  ${label('Not kept')}--memory: imposters live in this process and go when it stops`
+            : `  ${label('Imposters kept in')}${dataDirFor(opts)}`,
         '',
         opts.allowInjection
           ? '  Injection is ON. Stubs on this instance can run JavaScript.\n'

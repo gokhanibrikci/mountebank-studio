@@ -160,6 +160,54 @@ jobs:
           echo "$config" | grep -qE '"allowInjection": *false'
           echo "$config" | grep -qE '"localOnly": *true'
 
+      - name: Imposters survive a restart
+        # The whole point of keeping them is that they come back, so the test is a restart
+        # rather than the presence of a file. An explicit --datadir keeps the runner's home
+        # out of it.
+        run: |
+          set -euo pipefail
+          node server/index.mjs --port 5397 --mb-port 2597 --datadir "$PWD/mb-data" > keep.log 2>&1 &
+          KEPT=$!
+          for i in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:5397/mb/local/config > /dev/null; then break; fi
+            if [ "$i" = 60 ]; then echo "never started"; cat keep.log; exit 1; fi
+            sleep 1
+          done
+          grep -q 'Imposters kept in' keep.log || { echo "::error::the banner does not say where they are kept"; cat keep.log; exit 1; }
+
+          curl -fsS -m 10 -X POST http://127.0.0.1:5397/mb/local/imposters \
+            -H 'Content-Type: application/json' \
+            -d '{"port":6397,"protocol":"http","name":"kept","stubs":[{"predicates":[{"equals":{"path":"/k"}}],"responses":[{"is":{"body":"still here"}}]}]}' \
+            -o /dev/null
+
+          kill $KEPT
+          for i in $(seq 30); do curl -fsS -m 1 http://127.0.0.1:5397/ > /dev/null 2>&1 || break; sleep 1; done
+
+          node server/index.mjs --port 5397 --mb-port 2597 --datadir "$PWD/mb-data" > keep2.log 2>&1 &
+          AGAIN=$!
+          trap 'kill $AGAIN 2>/dev/null || true' EXIT
+          for i in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:5397/mb/local/config > /dev/null; then break; fi
+            if [ "$i" = 60 ]; then echo "never restarted"; cat keep2.log; exit 1; fi
+            sleep 1
+          done
+
+          curl -fsS -m 5 http://127.0.0.1:5397/mb/local/imposters | grep -q '"kept"' \
+            || { echo "::error::the imposter did not survive the restart"; exit 1; }
+          [ "$(curl -fsS -m 5 http://127.0.0.1:6397/k)" = "still here" ] \
+            || { echo "::error::it came back but does not answer"; exit 1; }
+
+          echo "— and --memory keeps nothing"
+          rm -rf mb-data
+          node server/index.mjs --port 5395 --mb-port 2595 --memory > mem.log 2>&1 &
+          MEM=$!
+          for i in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:5395/mb/local/config > /dev/null; then break; fi
+            sleep 1
+          done
+          grep -q 'Not kept' mem.log || { echo "::error::--memory does not say so"; cat mem.log; exit 1; }
+          kill $MEM 2>/dev/null || true
+
       - name: Publishable shape
         # The tarball must carry a built panel and the server, and nothing else that
         # could ship a secret or a note by accident.

@@ -139,20 +139,21 @@ install is not part of this recipe — use the plain `mountebank-studio` command
 Installing it as a *runtime* dependency does nothing useful either way: this is a
 program to run, not a library to import.
 
-### What survives a restart, and what does not
+### What survives a restart
 
-Mountebank keeps imposters in memory, so the instance started for you is empty every
-time. To keep what you built, copy the JSON from **Settings → Full configuration** —
-it is already in the shape `--configfile` expects — and start Mountebank yourself with
-it:
+The imposters you create are **kept**. Mountebank holds them in memory unless it is told
+otherwise, so the instance started for you is given a directory and the banner says which:
 
-```bash
-mb start --configfile mocks.json
-npx mountebank-studio --mb-url http://localhost:2525
+```
+  Imposters kept in        ~/.mountebank-studio/local-2525
 ```
 
-The panel reaches it through this origin either way, so starting it yourself costs you
-no flags.
+Close the terminal, start it again, and they are there. `--datadir ./mocks` puts them
+somewhere else — a project directory, if these mocks belong to a repository — and
+`--memory` opts out for a throwaway session, which the banner then says instead.
+
+Nothing is kept for an instance you point at with `--mb-url`: that one is yours, and how it
+persists is its own business.
 
 The environments you add are stored in the browser rather than on the machine, so a
 different browser — or cleared site data — meets the welcome screen again. What lives

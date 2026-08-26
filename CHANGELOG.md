@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.4.0 — 19 August 2026
+
+**The imposters you create are kept.** Mountebank holds them in memory unless it is told
+otherwise, so until now closing the terminal threw away everything built in the session —
+with nothing on screen saying it would. For a panel whose job is building mocks by hand, that
+was the wrong default.
+
+The instance started for you now gets a directory, and the banner says which:
+
+```
+  Imposters kept in        ~/.mountebank-studio/local-2525
+```
+
+Close it, start it again, and they are there — verified in CI by an actual restart rather than
+by the presence of a file.
+
+- The path is under your home rather than the working directory, because "where I ran it from"
+  is not something anyone remembers, and it is keyed by the mountebank port: `--mb-port 3000`
+  is a different instance and gets its own store.
+- **`--datadir <path>`** puts it anywhere — a project directory, if these mocks belong to a
+  repository.
+- **`--memory`** opts out for a throwaway session, and the banner says *Not kept* instead, out
+  loud, because that is the case where closing the window loses work.
+- Nothing is kept for an instance you point at with `--mb-url`: that one is yours, and how it
+  persists is its own business.
+
+Every call the panel makes was re-checked against a datadir-backed instance before this became
+the default — the filesystem-backed repository is a different code path in mountebank, and all
+twelve answer identically, recorded traffic included.
+
 ## 0.3.2 — 19 August 2026
 
 - **Saving an edited stub works.** It never had: `PUT /imposters/:port/stubs/:index` was sent
