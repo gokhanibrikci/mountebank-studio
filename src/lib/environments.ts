@@ -93,6 +93,18 @@ export interface FieldErrors {
  * What is wrong with a draft, field by field, so the form can say it in place.
  * An empty object means the draft is savable.
  */
+/**
+ * Whether a URL is the page doing the asking — same origin, and nothing but the root.
+ *
+ * A path is left alone: a deployment where the panel and an instance share an origin is
+ * perfectly ordinary, and `/mb/local` is exactly that.
+ */
+function isThisPage(url: URL): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = url.pathname.replace(/\/+$/, '');
+  return path === '' && url.origin === window.location.origin;
+}
+
 export function validate(
   draft: { label: string; target: string },
   others: MbEnvironment[],
@@ -123,6 +135,18 @@ export function validate(
       errors.target = 'That is not a URL. Include the scheme, e.g. https://mb.example.com';
     } else if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       errors.target = 'Only http and https can be reached from a browser.';
+    } else if (isThisPage(url)) {
+      /*
+       * The panel's own address, typed instead of the instance's.
+       *
+       * It is the easiest mistake available: both are on 127.0.0.1, both were printed by
+       * the same command, and this one answers — with index.html, for every path, because
+       * a single-page app has to. So it looks alive and reads nothing, which is a worse
+       * outcome than a refusal. The instance is a different port, and the path this page
+       * forwards it on is the answer people actually want.
+       */
+      errors.target =
+        'That is this page, not a Mountebank. The instance is on its own port — or use the path this page forwards it on, e.g. /mb/local.';
     } else if (others.some((e) => normalise(e.target) === normalise(target))) {
       errors.target = 'Another environment already points at this instance.';
     }
@@ -178,12 +202,30 @@ export function adoptable(
   existing: MbEnvironment[],
   published: MbEnvironment[],
   seen: EnvId[],
+  /**
+   * How to tell whether two addresses are the same instance. `normalise` compares the
+   * strings, which is right for a published list this browser knows nothing else about;
+   * the caller that has the forwarding manifest passes `resolveTarget`, so `/mb/local`
+   * and the `http://127.0.0.1:2525` somebody typed for it count as one.
+   */
+  reach: (target: string) => string = normalise,
 ): MbEnvironment[] {
   const ids = new Set(existing.map((e) => e.id));
-  const targets = new Set(existing.map((e) => normalise(e.target)));
-  return published.filter(
-    (env) => !seen.includes(env.id) && !ids.has(env.id) && !targets.has(normalise(env.target)),
-  );
+  const reached = new Set(existing.map((e) => reach(e.target)));
+  return published.filter((env) => {
+    if (ids.has(env.id) || reached.has(reach(env.target))) return false;
+    /*
+     * The instance this page serves is exempt from "offered once".
+     *
+     * `mountebank-studio` starts a Mountebank and serves it at /mb/local; a panel that
+     * does not list it opens on something else, or on nothing, while the working instance
+     * sits unlisted — and the only way back was to type an address this process already
+     * publishes. That is not a preference to remember, it is what this process is, so it
+     * is listed every start. Everything else a host publishes still asks once.
+     */
+    if (isProxied(env.target)) return true;
+    return !seen.includes(env.id);
+  });
 }
 
 /**

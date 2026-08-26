@@ -45,7 +45,7 @@ interface EnvironmentsState {
    * Reports whether anything was adopted, because that is exactly the moment worth
    * greeting somebody on — see `greeted` in the studio store.
    */
-  seed: (list: MbEnvironment[]) => boolean;
+  seed: (list: MbEnvironment[], reach?: (target: string) => string) => boolean;
   /**
    * The ids a host has already offered this browser, kept so an environment somebody
    * removed is not handed straight back on the next start.
@@ -101,9 +101,9 @@ export const useEnvironments = create<EnvironmentsState>()(
 
       offered: [],
 
-      seed: (list) => {
+      seed: (list, reach) => {
         if (list.length === 0) return false;
-        const fresh = adoptable(get().list, list, get().offered);
+        const fresh = adoptable(get().list, list, get().offered, reach);
         set({
           list: [...get().list, ...fresh],
           /* Every offered id is remembered, including one skipped for duplicating an

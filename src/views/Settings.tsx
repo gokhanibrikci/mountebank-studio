@@ -18,12 +18,12 @@
  * instance or it says the request failed.
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { isProxied, seedFromHost, type EnvId, type MbEnvironment } from '../lib/environments';
-import { readyToRoute, resolveTarget } from '../lib/mb/reach';
+import { isProxied, type EnvId, type MbEnvironment } from '../lib/environments';
+import { resolveTarget } from '../lib/mb/reach';
 import { DEMO_BUILD } from '../lib/demo/instance';
 import { plural } from '../lib/format';
 import { clearProxyResponses, clearRequests, describeError } from '../lib/mb/client';
@@ -139,42 +139,6 @@ export function Settings() {
      link lands on the same instance; the store is the fallback and the first
      entry the last resort. With nothing defined there is no current environment
      at all, and this screen becomes the place one is created. */
-  /**
-   * The environment this host publishes, when the browser has not got it.
-   *
-   * Read once per visit rather than watched: a page that keeps re-offering something is
-   * nagging, and this only has to be true when somebody comes looking at the list.
-   */
-  const [offer, setOffer] = useState<MbEnvironment | null>(null);
-
-  /* Asked once, when somebody opens this screen, and only when the host has something the
-     list really does not have. Compared BY INSTANCE rather than by string: `/mb/local`
-     and the `http://127.0.0.1:2525` somebody typed for that same Mountebank are one
-     instance, and a comparison of the two spellings offers a second row for it. That is
-     what happened — the address in the list was the one from the terminal, so the panel
-     kept offering the instance it was already pointed at. `resolveTarget` is what the
-     rest of the panel uses to decide the same thing, so the manifest is awaited first. */
-  useEffect(() => {
-    let cancelled = false;
-    void readyToRoute()
-      .then(seedFromHost)
-      .then((published) => {
-        if (cancelled) return;
-        const ids = new Set(list.map((e) => e.id));
-        const reached = new Set(list.map((e) => resolveTarget(e.target)));
-        const missing = published.find(
-          (e) => !ids.has(e.id) && !reached.has(resolveTarget(e.target)),
-        );
-        setOffer(missing ?? null);
-      });
-    return () => {
-      cancelled = true;
-    };
-    /* The list is deliberately not a dependency: adding it makes this re-run on every
-       edit, and the answer only matters when the screen opens. */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const environment: MbEnvironment | undefined =
     list.find((e) => e.id === params.env) ?? list.find((e) => e.id === storeEnv) ?? list[0];
   const env = environment?.id;
@@ -280,37 +244,6 @@ export function Settings() {
           )
         }
       >
-        {/*
-          What this host publishes but the browser does not have.
-
-          An environment removed once is not handed back on every start — that decision has
-          to stick — but "never again, and no way back" is a dead end: the only route was to
-          type an address the host already knows. So it is offered here, once, where the list
-          it belongs to lives.
-        */}
-        {offer === null ? null : (
-          <Strip
-            tone="info"
-            icon={<Icon name="globe" />}
-            title="The Mountebank this page serves is not in your list"
-          >
-            This page already reaches one at <span className="mono">{offer.target}</span> — the
-            instance the terminal named when it started. Nothing in the list below points at it,
-            so the panel opens on something else.{' '}
-            <Button
-              size="sm"
-              icon={<Icon name="plus" />}
-              onClick={() => {
-                const created = add({ label: offer.label, target: offer.target });
-                setOffer(null);
-                toast(`${created.label} added`);
-              }}
-            >
-              Add it
-            </Button>
-          </Strip>
-        )}
-
         {list.length === 0 ? (
           <EmptyState
             title="No environments yet"

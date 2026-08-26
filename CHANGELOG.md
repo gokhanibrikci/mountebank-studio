@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.3 — 26 August 2026
+
+- **The instance this command starts is simply listed, every start.** Two releases went into
+  offering it, which was the wrong shape for the question: `mountebank-studio` starts a
+  Mountebank and serves it at `/mb/local`, and a panel that does not list it opens on
+  something else while the working instance sits unlisted. That is not a preference to
+  remember — it is what the process is. Everything else a host publishes still asks once, so
+  removing a shared environment is still a decision that sticks. The offer strip is gone with
+  its own explanation, and adoption compares by instance, so a list that already has the
+  address from the terminal does not gain a second row for the same Mountebank.
+- **An environment can no longer be pointed at this page.** The easiest mistake available:
+  the panel and the instance are both on 127.0.0.1, both printed by the same command, and the
+  panel answers — with `index.html`, for every path, because a single-page app has to. So it
+  looked alive and read nothing, and Settings crashed on it before 0.4.1. The form refuses its
+  own origin now and says where the instance actually is. A path (`/mb/local`) and any address
+  under a path on this origin are untouched, since sharing a hostname behind a proxy is
+  ordinary.
+
 ## 0.4.2 — 26 August 2026
 
 - **The offer added in 0.4.1 no longer offers an instance you already have.** It compared

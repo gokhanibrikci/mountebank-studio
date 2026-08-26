@@ -14,7 +14,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { seedFromHost } from './lib/environments';
 import { DEMO_BUILD, DEMO_TARGET } from './lib/demo/instance';
-import { readyToRoute, restoreForwards } from './lib/mb/reach';
+import { readyToRoute, resolveTarget, restoreForwards } from './lib/mb/reach';
 import { useEnvironments } from './store/useEnvironments';
 import { useStudio } from './store/useStudio';
 import './styles/base.css';
@@ -77,7 +77,9 @@ if (DEMO_BUILD) {
   useStudio.getState().setGreeted(true);
 }
 
-const adopted = useEnvironments.getState().seed(await seedFromHost());
+/* resolveTarget, so an instance already in the list under the address somebody read off
+   their terminal is not adopted a second time under the path this host publishes. */
+const adopted = useEnvironments.getState().seed(await seedFromHost(), resolveTarget);
 if (adopted && !useStudio.getState().greeted) useStudio.getState().setWelcome(true);
 
 createRoot(container).render(
