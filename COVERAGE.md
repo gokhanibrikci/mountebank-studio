@@ -143,12 +143,17 @@ the panel gives them one JSON value field rather than a form of their own.
 
 ### The two API gaps worth knowing
 
-**`GET /logs`.** Mountebank's own log, including the line that says which stub
-matched when the instance runs with `--debug`. The panel does not read it: the
-Activity screen is built from each imposter's recorded requests, and which stub
-answered is **computed** locally by re-evaluating predicates (`src/lib/mb/match.ts`),
-labelled as computed everywhere it appears. That is why recording has to be on for
-Activity to show anything.
+**`GET /logs`.** Mountebank's own log. The panel does not read it, and the Activity
+screen is built from each imposter's recorded requests instead — so recording has to be on
+(or the instance started with `--mock`) for Activity to show anything.
+
+Note what `--debug` actually does, since this document said otherwise: it adds no
+matched-stub line to the log. It attaches a `matches` array to every stub in an imposter
+retrieval — the request, the response Mountebank sent, and the processing time — which is a
+resource the panel already fetches and does not yet read. So which stub answered is
+**computed** locally by re-evaluating predicates (`src/lib/mb/match.ts`) and labelled as
+computed everywhere it appears, on a `--debug` instance too. Reading `matches` is the
+obvious next step and is not taken.
 
 **Proxy resolution.** Recording a real service through `proxyAlways` and then
 replaying it is supported to the extent that proxy responses are saved on the
@@ -159,11 +164,19 @@ let a client resolve a pending proxy call, have no screen.
 
 ## CLI flags (the instance's own, reported not set)
 
-The panel never starts an instance. It reads what `GET /config` reports and shows
-it: `--port`, `--configfile`, `--allowInjection`, `--localOnly`, `--ipWhitelist`,
-`--mock`, `--debug`, `--origin`, and reconstructs the command line from exactly
-those. `--apikey` is reported by the instance but the panel cannot send a key, so an
-instance started with one is unreachable from here.
+The panel — the page in your browser — never sets these. (The `mountebank-studio`
+command does start an instance, with `--localOnly`, `--nologfile` and a `--datadir`.) It
+reads what `GET /config` reports and shows it: `--port`, `--configfile`,
+`--allowInjection`, `--localOnly`, `--ipWhitelist`, `--mock`, `--debug`, `--origin`,
+`--datadir`, `--host`, `--impostersRepository` and `--noParse`, and reconstructs the
+command line from those. Two deliberate omissions: a reported default is not printed as if
+it had been given (`--ipWhitelist *`), and `--apikey` is read but never printed into a
+copyable line. An instance started with a key is unreachable from here, since the panel
+cannot send one.
+
+`--origin` takes ONE origin, or several by repeating the flag — it is not
+pipe-separated. This panel believed otherwise until 0.4.7, reported such an instance as
+allowing this page, and printed a pipe-joined command as the fix.
 
 ---
 

@@ -12,7 +12,17 @@
 import { useId, useState, type ReactNode } from 'react';
 
 import type { Imposter } from '../lib/mb/types';
-import { Button, CodeEditor, Field, Icon, Input, Section, Select, Switch } from '../ui';
+import {
+  Button,
+  CodeEditor,
+  Field,
+  Icon,
+  Input,
+  Section,
+  Select,
+  Switch,
+  Textarea,
+} from '../ui';
 import styles from './ImposterSettings.module.css';
 
 const PROTOCOLS = ['http', 'https', 'tcp', 'smtp'];
@@ -112,7 +122,7 @@ export function ImposterSettings({
         : dirty
           ? port === imposter.port
             ? `Saving restarts port ${imposter.port} with these settings — its captured requests do not survive.`
-            : `Saving stops port ${imposter.port} and starts this imposter on ${port} instead.`
+            : `Saving stops port ${imposter.port} and tries to start this imposter on ${port} — if ${port} is in use, the old one does not come back.`
           : 'These settings match the running imposter.';
 
   return (
@@ -190,7 +200,19 @@ export function ImposterSettings({
       {json}
 
       <Section title="Default response">
-        <Field hint="Returned when no stub matches. Leave empty for Mountebank's own 200 with an empty body.">
+        <Field
+          hint={
+            /* Not only when nothing matches: mountebank merges these fields into every
+               response that leaves them out, so a status set here also changes responses
+               that DID match a stub. And "200 with an empty body" is http/https only — a
+               tcp imposter's default is `{ data: '' }`, and smtp ignores responses. */
+            draft.protocol === 'tcp'
+              ? 'Returned when no stub matches — and merged into any stub response that leaves a field out. Leave empty for Mountebank\u2019s own empty data.'
+              : draft.protocol === 'smtp'
+                ? 'An smtp imposter only does mock verification — Mountebank does not use responses for it, so this has no effect.'
+                : 'Returned when no stub matches — and merged into any stub response that leaves a field out, so a status set here also applies to responses that do match. Leave empty for Mountebank\u2019s own 200 with an empty body.'
+          }
+        >
           <CodeEditor
             language="json"
             /* 132px held about four lines, which is shorter than the shortest useful
@@ -205,36 +227,52 @@ export function ImposterSettings({
 
       {draft.protocol === 'https' ? (
         <Section title="TLS">
-          <div className={styles.grid2}>
-            <Field label="Key file" htmlFor={`${id}-key`}>
-              <Input
-                id={`${id}-key`}
-                mono
-                placeholder="./cert/server.key"
-                value={draft.key}
-                disabled={locked}
-                onChange={(e) => patch({ key: e.currentTarget.value })}
-              />
-            </Field>
-            <Field label="Cert file" htmlFor={`${id}-cert`}>
-              <Input
-                id={`${id}-cert`}
-                mono
-                placeholder="./cert/server.crt"
-                value={draft.cert}
-                disabled={locked}
-                onChange={(e) => patch({ cert: e.currentTarget.value })}
-              />
-            </Field>
-          </div>
+          {/*
+            PEM TEXT, NOT PATHS.
+            
+            These were labelled "Key file" and "Cert file", placeholders showed
+            `./cert/server.key`, and the note said mountebank reads the path on its own
+            host. None of that is true: the values go straight to `https.createServer`,
+            which wants the certificate itself. A path produces
+            ERR_OSSL_PEM_NO_START_LINE and the imposter never starts — and a single-line
+            <input> could not have held a PEM anyway, since it would lose the newlines.
+          */}
+          <Field label="Private key (PEM)" htmlFor={`${id}-key`}>
+            <Textarea
+              id={`${id}-key`}
+              className="mono"
+              rows={4}
+              placeholder={'-----BEGIN RSA PRIVATE KEY-----\n…\n-----END RSA PRIVATE KEY-----'}
+              value={draft.key}
+              disabled={locked}
+              onChange={(e) => patch({ key: e.currentTarget.value })}
+            />
+          </Field>
+          <Field label="Certificate (PEM)" htmlFor={`${id}-cert`}>
+            <Textarea
+              id={`${id}-cert`}
+              className="mono"
+              rows={4}
+              placeholder={'-----BEGIN CERTIFICATE-----\n…\n-----END CERTIFICATE-----'}
+              value={draft.cert}
+              disabled={locked}
+              onChange={(e) => patch({ cert: e.currentTarget.value })}
+            />
+          </Field>
           <Switch
-            label="Require a client certificate (mutualAuth)"
+            /* Nothing is required: mountebank sets requestCert only when mutualAuth AND
+               rejectUnauthorized are both on, this form never writes the second, and even
+               with both it does not reject a bad client certificate. */
+            label="Virtualize mutual auth (mutualAuth)"
             checked={draft.mutualAuth}
             disabled={locked}
             onChange={(next) => patch({ mutualAuth: next })}
           />
           <span className={styles.hint}>
-            Paths are read by Mountebank on the host it runs on, not uploaded from here.
+            Paste the certificate itself, not a path — Mountebank hands these to Node&rsquo;s TLS
+            server as they are. Left empty it uses its own self-signed pair. Mutual auth records
+            the flag and asks for a client certificate; Mountebank never rejects a client over it,
+            so this virtualizes the handshake rather than enforcing it.
           </span>
         </Section>
       ) : null}

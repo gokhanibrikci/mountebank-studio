@@ -1,5 +1,69 @@
 # Changelog
 
+## 0.4.7 — 26 August 2026
+
+Every user-facing sentence in the panel, the README, COVERAGE, NOTICE and the CLI's own
+help was checked against what the code and a live mountebank 2.9.4 actually do — 640
+claims. 86 were wrong; a further 40 reports were refuted and the text left alone. The
+recurring cause was a screen describing an instance without reading it.
+
+**Read from the instance, not from memory.** `--mock` and `--debug` change what mountebank
+keeps, and four screens each described that differently and mostly wrongly: Activity denied
+the stored response unconditionally while conditioning the missing match on `--debug` in
+the same sentence; Settings claimed the match was "reported by mountebank" on a `--debug`
+instance, which is true of the API and false of this panel, since it never reads `matches`;
+the Imposters column, the imposter's warning strip, the Overview tile and the sidebar badge
+all announced that traffic was being dropped while a `--mock` instance kept every request.
+There is now one place that reads those two flags (`src/lib/mb/instanceFacts.ts`), and no
+sentence asserts a flag is off on an instance the panel could not read.
+
+**`--origin` is not a pipe-separated allowlist.** Mountebank hands the value straight to the
+CORS middleware, so `--origin "a|b"` answers with `Access-Control-Allow-Origin: a|b` — not a
+valid origin, and no browser accepts it. The panel split on `|` and therefore reported such
+an instance as allowing this page, and `Started with` printed the pipe-joined command as the
+fix. Several origins come from repeating the flag. Measured on 2.9.4 and asserted in CI.
+
+**An absent port was sent as `null`.** `Number(undefined)` is NaN and JSON writes that as
+null, which mountebank answers with a 500 — so an import advertised as "mountebank will
+assign a port" failed on exactly that row. The field is omitted now, which is a 201 with a
+port assigned.
+
+**A stub with no answers.** The editor said mountebank would reply with a bare 200. It
+cannot: it refuses to save a stub whose `responses` is empty, on every write endpoint.
+
+**The proxy hint was true of one mode in three.** Measured: `proxyOnce` records ahead of the
+proxy stub and takes over; `proxyAlways` records behind it, so the proxy keeps winning and
+nothing is ever replayed; `proxyTransparent` records nothing. Each mode says what it does.
+
+**TLS key and cert are PEM text, not paths.** Labelled "Key file", placeholders showing
+`./cert/server.key`, and a note saying mountebank reads the path on its host — none of it
+true. The values go to Node's TLS server as they are, so a path fails to start the imposter,
+and a single-line input could not have held a certificate anyway. And "Require a client
+certificate" required nothing: mountebank sets `requestCert` only with `rejectUnauthorized`,
+which this form never wrote, and never rejects a client over it.
+
+**Failures are no longer described as silence.** "did not answer", "unreachable", "No answer
+from X" were said for every failure — including the common one where the address answered
+and the panel read the answer, which the very next line then reported. They now turn on
+whether the browser gave the script anything at all.
+
+**`GET /imposters` is validated at the boundary,** the way `/config` already was. Any 200
+with something else in it resolved to an empty list, and the screens then stated facts about
+it: "0 imposters", "no imposters here yet", "nothing captured yet".
+
+Also: a non-match over a predicate the panel cannot evaluate is marked unconfirmed on the
+Overview feed and tiles instead of asserted; the delete confirmation counts requests
+*handled*, not captured; the Postman tooltip says http imposters rather than every imposter;
+`--insecure` says it applies to every HTTPS connection this process makes, not just
+`--mb-url`; `--localOnly` is described as refusing connections rather than binding loopback;
+the welcome screen's `npx` command names a free port and `--nologfile`, so it neither
+collides with the instance this command starts nor leaves an `mb.log` behind — and the
+server passes `--nologfile` for the same reason, having been writing one into whatever
+directory it was run from; the shortcut hint shows Ctrl outside macOS; the Overview heading
+is "Overview" like every link to it; the notice that an environment was dropped survives as
+a strip in Settings rather than a toast that expires in three seconds; and the licence note
+says mountebank is an npm dependency this package starts, which is what it is.
+
 ## 0.4.6 — 26 August 2026
 
 Every screen's text read back against a running instance, and four claims that were no

@@ -269,7 +269,10 @@ export function EnvironmentForm({
             icon={<Icon name="check" />}
             onClick={submit}
             disabled={!canSave}
-            title={canSave ? undefined : 'Fill in the name and the admin API URL first'}
+            /* Four of validate()'s errors happen with both fields filled — a duplicate
+               target, this page's own origin, an unparseable URL, a non-http scheme — and
+               this tooltip used to tell somebody to do what they had already done. */
+            title={canSave ? undefined : (errors.target ?? errors.label)}
           >
             {environment === undefined ? 'Add Environment' : 'Save Environment'}
           </Button>
@@ -422,13 +425,15 @@ function ProbeResult({
   } else if (probe.kind === 'blocked') {
     tone = styles.warn;
     icon = <Icon name="alert" size={14} />;
-    head = 'Mountebank is up — but it will not answer this page';
+    /* Nothing on this path proves it is Mountebank: `blocked` comes from a no-cors probe
+       whose reply cannot be read at all — not the body, not the status, not a header. */
+    head = 'Something is up — but it will not answer this page';
     body = (
       <>
         <p>
-          It answered, so the URL is right and you can save this environment as it is. The panel
-          cannot read it, though: this host does not forward to that instance, so the call is
-          cross-origin and the instance has to allow this page.
+          Something answered at that address, so you can save this environment as it is. The
+          panel cannot read it, though: this host does not forward to that instance, so the call
+          is cross-origin and the instance has to allow this page.
         </p>
         <div className={styles.cmd}>
           <code>{command}</code>

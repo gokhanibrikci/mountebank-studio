@@ -1,8 +1,11 @@
 /**
  * Which stub answered a recorded request?
  *
- * Mountebank only reports that itself when started with `--debug`, and neither
- * dev nor staging is (`GET /config` → debug:false). So we evaluate predicates
+ * Mountebank only reports that itself when started with `--debug` — and this panel
+ * does not read the report even then: the `matches` array it attaches to every stub
+ * arrives in the imposter retrieval and is thrown away. (The line that used to be
+ * here said "neither dev nor staging is", which was true of the two instances this
+ * was first written against and of nobody else's since.) So we evaluate predicates
  * client-side, mirroring Mountebank's own semantics:
  *
  *   • predicates in a stub's array are ANDed

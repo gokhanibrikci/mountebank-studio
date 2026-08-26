@@ -31,6 +31,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
+import { plural } from '../lib/format';
 import { envOr } from '../store/useEnvironments';
 import { mkStub, pretty, stubFromMb, stubToMb } from '../lib/mb/model';
 import { fromSimpleForm, toSimpleForm } from '../lib/mb/simpleForm';
@@ -151,6 +152,13 @@ export function StubEditor({ open, onClose, index, port: portProp, seed }: StubE
       setJson(pretty(stubToMb(stub)));
       setJsonTouched(false);
     }
+    /*
+     * Leaving the JSON view with an unparseable edit used to show "visual editor updated"
+     * — a green pill claiming the last edit had landed, while the draft was still the last
+     * version that PARSED. Saving then wrote that older stub. The edit is genuinely lost
+     * at this point, so the pill goes back to reporting no change.
+     */
+    if (jsonError !== null) setJsonTouched(false);
     // the model is by definition valid, so a stale parser message would lie
     setJsonError(null);
     setEditorView(next);
@@ -227,8 +235,11 @@ export function StubEditor({ open, onClose, index, port: portProp, seed }: StubE
       if (index !== null && detail.isSuccess && source === undefined) {
         return (
           <EmptyState title="That stub is gone" action={<Button onClick={onClose}>Close</Button>}>
-            Stub #{index + 1} is no longer on {imposterName} — someone else changed this imposter
-            while the drawer was opening.
+            {/* The panel knows nothing about who did what: this index comes from the
+                `?stub=` parameter, so a bookmarked or shared link that points past the end
+                of the list lands here with the imposter untouched. */}
+            {imposterName} has {plural(detail.data?.imposter.stubs.length ?? 0, 'stub')}, so there
+            is no #{index + 1}. It may have been deleted, or this link may be out of date.
           </EmptyState>
         );
       }

@@ -12,9 +12,10 @@ responses, behaviors, and the traffic each imposter has captured.
 panel with a Mountebank stand-in inside the page, so there is nothing to install to see what
 it does. Nothing is listening in there, and it says so on every screen.
 
-It also reads the mocks back out as a **Postman collection** — every imposter a folder,
-every stub a request that satisfies it — so what you have running is something you can
-fire at straight away. The download is on the Imposters screen, next to *New Imposter*.
+It also reads the mocks back out as a **Postman collection** — each http imposter a
+folder, each stub one example request — so what you have running is something you can fire
+at straight away. Non-HTTP imposters are left out, and a condition a request cannot express
+is written into the request's own description rather than silently dropped. The download is on the Imposters screen, next to *New Imposter*.
 
 ![The workspace: what is running, how much of it answered, and the traffic it took](docs/overview.png)
 
@@ -54,7 +55,8 @@ and how that was verified against the real package — is in
 npx mountebank-studio
 ```
 
-That starts a Mountebank, serves the panel, and opens on a working instance. Nothing
+That starts a Mountebank and serves the panel at the address it prints. The instance is
+already listed when you open it — one press of **Start** and you are in. Nothing
 to configure, and nothing to allow: the panel and the instance share one origin, so
 the CORS question below never comes up. Ctrl-C stops both.
 
@@ -71,8 +73,10 @@ cannot be: a panel serves a page, an instance serves an admin API.
 Useful flags: `--port` for the panel, `--mb-port` for the instance, `--mb-url` to use
 an instance you already run instead of starting one, `--allow-injection` to let stubs
 run JavaScript, `--host 0.0.0.0` to expose the panel (read the warning it prints).
-Mountebank is started bound to loopback with injection **off**, and its port is never
-exposed — only the panel's is.
+Mountebank is started with `--localOnly`, so it refuses connections from anything but
+this machine, and injection is **off**. Its own port is not published to your network —
+though a panel exposed with `--host 0.0.0.0` still forwards to it on `/mb/local`, which
+is what the warning it prints is about.
 
 ### Installed, if you reach for it often
 
@@ -117,9 +121,10 @@ mountebank-studio --mb-url https://mountebank.example.com
 No instance is started; the panel lists that URL and reaches it through this origin, so
 it needs no `--origin` of its own.
 
-Add `--insecure` only if a certificate cannot be fixed. It turns off verification for that
-upstream, which means anything between you and it can read and change these requests; the
-banner says so while it is on.
+Add `--insecure` only if a certificate cannot be fixed. It turns off certificate
+verification for **every** HTTPS connection this server makes — the instance you named and
+any other it is later asked to forward to — which means anything between you and them can
+read and change these requests; the banner says so while it is on.
 
 ### Or pinned to a project, for a team
 
@@ -203,12 +208,17 @@ instance has to allow this origin**:
 mb start --origin "http://localhost:5273"
 ```
 
-`--origin` is a pipe-separated allowlist and Mountebank echoes back whichever
+For more than one page, **repeat the flag** — Mountebank then echoes back whichever
 origin matched, so the API opens to the pages you name rather than to the web:
 
 ```bash
-mb start --origin "http://localhost:5273|https://mountebank-studio.example.com"
+mb start --origin "http://localhost:5273" --origin "https://mountebank-studio.example.com"
 ```
+
+It is not a pipe-separated list. `--origin "a|b"` is one string handed to the CORS
+middleware, so Mountebank answers with `Access-Control-Allow-Origin: a|b` — not a valid
+origin, and no browser accepts it. (Measured on 2.9.4; `--ipWhitelist` is the flag that
+does take pipes.)
 
 Cheap and zero-infrastructure. It has one real limit: it only works on instances you
 can restart.
@@ -307,8 +317,8 @@ anywhere. It holds:
 | Admin API | Either an absolute `http(s)` URL of the instance's admin port (`2525` by default, not an imposter's port), or a path on this origin (`/mb/stage`) that is forwarded to it. This page's own address is refused: a panel serves a page, an instance serves an admin API. |
 | Note      | An optional caution shown next to the environment.                                                                                                                         |
 
-That is the whole record. It carried two more fields once — a colour, and a
-read-only switch — and both are gone: the colour only tinted a dot, and the switch
+Those are the three fields you fill in. The record carried two more once — a colour, and
+a read-only switch — and both are gone: the colour only tinted a dot, and the switch
 was a seatbelt the same person could unbuckle one screen away. Destructive actions
 confirm themselves instead, which is where the protection belongs.
 
@@ -400,14 +410,19 @@ stub does not rewrite keys that were never there.
 ## Matched stub
 
 Mountebank reports which stub answered a request only when the instance runs with
-`--debug`. Unless yours does, the panel evaluates the predicates itself
-(`match.ts`, mirroring Mountebank's semantics — first match wins, case-insensitive
-unless `caseSensitive`, type-exact comparison) and labels the result as computed. A
-stub containing a predicate the editor cannot model is marked as unconfirmed rather
-than silently treated as a non-match.
+`--debug` — and this panel does not read that report either way. It evaluates the
+predicates itself (`match.ts`, mirroring Mountebank's semantics — first match wins,
+case-insensitive unless `caseSensitive`, type-exact comparison) and labels the result as
+computed. A stub containing a predicate the editor cannot model is marked as unconfirmed
+rather than silently treated as a non-match. On a `--debug` instance the screens say so:
+Mountebank recorded the match, the panel is still showing its own. Reading `matches`
+instead is worth doing and is not done yet.
 
-For the same reason the panel never claims to show a response Mountebank sent: the
-request log stores requests only. Status and delay in the activity table are read
+Status and delay in the activity table are read from the matched stub rather than from
+anything Mountebank kept — without `--debug` it keeps no response at all, and with it the
+panel does not read the one it kept. What the screens say about that is decided in one
+place, `src/lib/mb/instanceFacts.ts`, so four of them cannot describe the same flag four
+different ways again. Status and delay are read
 from the matched stub, and say so.
 
 ---

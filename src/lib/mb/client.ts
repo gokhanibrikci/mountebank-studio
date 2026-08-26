@@ -131,17 +131,42 @@ export const getConfig = async (env: EnvId): Promise<MbConfig> => {
  */
 export async function listImposters(env: EnvId): Promise<MbImposter[]> {
   const [summary, replayable] = await Promise.all([
-    http(env).get<{ imposters: MbImposter[] }>('/imposters'),
-    http(env).get<{ imposters: MbImposter[] }>('/imposters', { params: { replayable: true } }),
+    http(env).get<unknown>('/imposters'),
+    http(env).get<unknown>('/imposters', { params: { replayable: true } }),
   ]);
 
+  /*
+   * `?? []` was hiding a mis-pointed environment.
+   *
+   * Any address that answers 200 with something else — this page, which serves index.html
+   * for every path; another service's JSON — resolved to an empty list with no error, and
+   * every screen then stated a fact about it: "0 imposters", "no imposters here yet",
+   * "nothing captured yet". The same guard `getConfig` grew, for the same reason.
+   */
+  const listOf = (body: unknown): MbImposter[] => {
+    const imposters =
+      typeof body === 'object' && body !== null
+        ? (body as { imposters?: unknown }).imposters
+        : undefined;
+    if (!Array.isArray(imposters)) {
+      throw new Error(
+        'That address answered, but not with a Mountebank list of imposters. Check that it points at an instance\u2019s admin port \u2014 not at an imposter, and not at this page.',
+      );
+    }
+    return imposters as MbImposter[];
+  };
+
+  /* A listed imposter always has a port — mountebank assigned one at creation if the
+     caller did not. The guard is for the type, which allows its absence on the way out. */
   const counts = new Map<number, number>(
-    (summary.data.imposters ?? []).map((i) => [i.port, i.numberOfRequests ?? 0]),
+    listOf(summary.data).flatMap((i) =>
+      typeof i.port === 'number' ? [[i.port, i.numberOfRequests ?? 0] as [number, number]] : [],
+    ),
   );
 
-  return (replayable.data.imposters ?? []).map((i) => ({
+  return listOf(replayable.data).map((i) => ({
     ...i,
-    numberOfRequests: counts.get(i.port) ?? 0,
+    numberOfRequests: (i.port === undefined ? undefined : counts.get(i.port)) ?? 0,
   }));
 }
 

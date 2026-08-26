@@ -23,6 +23,7 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import type { EnvId } from '../lib/environments';
+import { isOpaque } from '../lib/mb/reach';
 import { useImposters } from '../lib/queries';
 import { sigOf } from '../lib/summaries';
 import type { Stub } from '../lib/mb/types';
@@ -272,7 +273,7 @@ export function CommandPalette({ env }: CommandPaletteProps) {
             ref={inputRef}
             className={styles.input}
             value={query}
-            placeholder="Jump to an imposter, stub or action…"
+            placeholder="Jump to an imposter, stub or screen…"
             autoComplete="off"
             spellCheck={false}
             role="combobox"
@@ -314,7 +315,10 @@ export function CommandPalette({ env }: CommandPaletteProps) {
             <p className={styles.foot}>Loading imposters and stubs from {where}…</p>
           ) : imposters.isError ? (
             <p className={styles.foot}>
-              No answer from {where} — imposters and stubs are missing from this list.
+              {isOpaque(imposters.error)
+                ? `No answer from ${where}`
+                : `${where} could not be read`}{' '}
+              — imposters and stubs are missing from this list.
             </p>
           ) : null}
         </div>

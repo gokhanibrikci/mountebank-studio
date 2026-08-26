@@ -31,3 +31,7 @@ notes/
 
 # never let a publish token near a commit
 .npmrc
+
+# mountebank writes these where it is run; --nologfile stops the first
+mb.log
+mb.pid

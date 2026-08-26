@@ -316,9 +316,18 @@ const DRAWN_IMPOSTER = [
 ];
 
 export function imposterToMb(imp: Imposter): MbImposter {
+  /*
+   * An absent port is OMITTED, not sent as null.
+   *
+   * `Number(undefined)` is NaN and JSON.stringify writes that as `null`, which mountebank
+   * answers with a 500 and an HTML error page. Left out entirely it assigns a free port
+   * and returns 201 — which is what the import screen promises for a file whose imposter
+   * has no port. Measured on 2.9.4.
+   */
+  const port = Number(imp.port);
   const out: MbImposter = {
     protocol: imp.protocol,
-    port: Number(imp.port),
+    ...(Number.isFinite(port) && port > 0 ? { port } : {}),
     name: imp.name,
     recordRequests: !!imp.recordRequests,
   };

@@ -19,7 +19,19 @@ import { Icon } from '../ui';
 import appStyles from '../styles/app.module.css';
 import styles from './Topbar.module.css';
 
-export interface TopbarProps {
+export /**
+ * The key this platform actually uses.
+ *
+ * The handler has always taken Ctrl as well as Cmd, but the hint only ever showed the
+ * Apple key — so on Windows and Linux the panel advertised a keystroke that does not
+ * exist and never named the one that does.
+ */
+const MOD =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    ? '\u2318'
+    : 'Ctrl+';
+
+interface TopbarProps {
   env: EnvId;
 }
 
@@ -72,12 +84,12 @@ export function Topbar({ env }: TopbarProps) {
           type="button"
           className={`searchbtn ${styles.search}`}
           onClick={() => setPaletteOpen(true)}
-          title="Search imposters and stubs (⌘K)"
+          title={`Search imposters and stubs (${MOD}K)`}
           aria-label="Search imposters and stubs"
         >
           <Icon name="search" />
           <span>Search imposters and stubs</span>
-          <kbd className={styles.kbd}>⌘K</kbd>
+          <kbd className={styles.kbd}>{MOD}K</kbd>
         </button>
       </div>
     </header>

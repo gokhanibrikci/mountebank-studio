@@ -33,6 +33,7 @@ import { imposterToMb } from '../lib/mb/model';
 import type { Imposter } from '../lib/mb/types';
 import { saveJson } from '../lib/download';
 import { toPostmanCollection } from '../lib/postman';
+import { useInstanceFacts } from '../lib/mb/instanceFacts';
 import { mbKeys, useCreateImposter, useDeleteImposter, useImposters } from '../lib/queries';
 import { ImportModal } from './ImportModal';
 import { useStudio } from '../store/useStudio';
@@ -158,6 +159,9 @@ export function Imposters() {
   const [search, setSearch] = useSearchParams();
 
   const imposters = useImposters(env);
+  /* What this instance keeps, so the Recording column and the delete confirmation cannot
+     contradict a full Activity tab. */
+  const facts = useInstanceFacts(env);
   const create = useCreateImposter(env);
   const remove = useDeleteImposter(env);
   const saveConfig = useSaveConfig(env);
@@ -270,7 +274,12 @@ export function Imposters() {
             title={
               canCreate
                 ? 'New Imposter'
-                : `${environment.label} has not answered yet — nothing can be created until it does`
+                : imposters.isError
+                  ? /* It often HAS answered — with a 4xx, or a reply the browser threw
+                       away. Claiming silence next to a "could not be read" screen is the
+                       one thing this tooltip must not do. */
+                    `${environment.label} could not be read, so nothing can be created yet`
+                  : `${environment.label} has not answered yet — nothing can be created until it does`
             }
             onClick={openCreate}
           >
@@ -304,7 +313,7 @@ export function Imposters() {
             icon={<Icon name="down" size={14} />}
             onClick={downloadPostman}
             disabled={list.length === 0}
-            title="Every imposter as a folder and every stub as a request that satisfies it"
+            title="Each http imposter as a folder, each stub as one example request — conditions a request cannot express are noted in it"
           >
             Postman Collection
           </Button>
@@ -388,10 +397,17 @@ export function Imposters() {
       >
         <p className={styles.confirm}>
           {pendingDelete !== null
-            ? `${plural(pendingDelete.stubs.length, 'stub')} and ${plural(
+            ? /* numberOfRequests is what mountebank COUNTED, not what it kept: it is
+                 incremented for every request and the request is only stored when
+                 recording is on. Saying "captured" promised a log that may be empty. */
+              `${plural(pendingDelete.stubs.length, 'stub')} and ${plural(
                 pendingDelete.numberOfRequests,
-                'captured request',
-              )} go with it. This can't be undone.`
+                'handled request',
+              )} go with it${
+                pendingDelete.recordRequests === true || facts.recordsEverything
+                  ? ', captured requests included'
+                  : ' — none of them were kept, since it was not recording'
+              }. This can't be undone.`
             : null}
         </p>
       </Modal>
@@ -562,6 +578,14 @@ export function Imposters() {
                     <Pill tone="acc" dot>
                       on
                     </Pill>
+                  ) : facts.recordsEverything ? (
+                    /* A --mock instance keeps every request whatever this flag says. The
+                       column used to print "off" beside a full Activity tab. */
+                    <span title="This instance runs with --mock, so it records every request regardless of the imposter's own flag">
+                      <Pill tone="acc" dot>
+                        on · --mock
+                      </Pill>
+                    </span>
                   ) : (
                     <Pill>off</Pill>
                   )}

@@ -22,6 +22,8 @@ import { useNavigate } from 'react-router-dom';
 import { type EnvId } from '../lib/environments';
 import { mkCondition, mkImposter, mkPred, mkResp, mkStub, pretty } from '../lib/mb/model';
 import type { Imposter, Stub } from '../lib/mb/types';
+import { isForwarded } from '../lib/mb/reach';
+import { envOr } from '../store/useEnvironments';
 import { useCreateImposter } from '../lib/queries';
 import { Button, Field, Icon, Input, Modal, Off, Select, Switch } from '../ui';
 import styles from './NewImposterModal.module.css';
@@ -79,7 +81,12 @@ const proxyStub = (): Stub =>
     responses: [
       mkResp('proxy', {
         proxy: {
-          to: 'https://',
+          /*
+           * A real, editable address. `https://` alone is not a URL mountebank accepts —
+           * it went on the wire verbatim and Create failed with a bare 400, so the one
+           * template that could not create an imposter was the one offering to.
+           */
+          to: 'https://api.example.com',
           mode: 'proxyOnce',
           genMethod: true,
           genPath: true,
@@ -125,7 +132,7 @@ interface PortCheck {
   error: string | null;
 }
 
-function checkPort(text: string, imposters: Imposter[]): PortCheck {
+function checkPort(text: string, imposters: Imposter[], onThisMachine: boolean): PortCheck {
   const port = Number(text);
 
   if (text.trim() === '') {
@@ -148,8 +155,12 @@ function checkPort(text: string, imposters: Imposter[]): PortCheck {
    * — and on a machine that resolves localhost to IPv6 first it can bind alongside
    * it, so the panel appears to break for no reason. Refused rather than explained
    * afterwards.
+   *
+   * ONLY when the instance is on this machine. Pointed at a remote instance, port 5273
+   * over there has nothing to do with this page, and refusing it invented a collision
+   * that cannot happen.
    */
-  if (String(port) === window.location.port) {
+  if (onThisMachine && String(port) === window.location.port) {
     return {
       port,
       error: `Port ${port} is where this panel is served. An imposter there would answer instead of it.`,
@@ -204,7 +215,22 @@ export function NewImposterModal({
     setRecord(true);
   }, [open]);
 
-  const { port: portNumber, error: portError } = checkPort(port, imposters);
+  /*
+   * Whether this environment's instance is on the machine serving this page — the only
+   * case in which "that port is the panel's" can be true. `isForwarded` covers an address
+   * this host proxies, and a loopback address covers the direct case.
+   */
+  const target = envOr(env).target;
+  const onThisMachine =
+    isForwarded(target) ||
+    (() => {
+      try {
+        return ['localhost', '127.0.0.1', '[::1]', '::1'].includes(new URL(target).hostname);
+      } catch {
+        return false;
+      }
+    })();
+  const { port: portNumber, error: portError } = checkPort(port, imposters, onThisMachine);
   const canCreate = portError === null && !create.isPending;
 
   function submit(): void {

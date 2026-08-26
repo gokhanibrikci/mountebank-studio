@@ -5,13 +5,16 @@
  * mountebank actually stores:
  *
  *  1. It does not report which stub answered a request unless it was started
- *     with `--debug`, and neither instance was. The match is therefore COMPUTED
+ *     with `--debug` — and this panel does not read that report either way. The
+ *     match is therefore COMPUTED
  *     from the predicates (`match.ts`) and labelled as computed. A stub holding
  *     a predicate the editor cannot model makes the verdict unconfirmed rather
  *     than a silent non-match.
  *
- *  2. It does not store the response it sent — the request log is requests only.
- *     So the response shown here is DERIVED from the matched stub, and says so.
+ *  2. Without `--debug` it stores no response at all — the request log is requests
+ *     only. With it, the response it sent is on the stub's `matches`, and the panel
+ *     still does not read it. Either way the response shown here is DERIVED from the
+ *     matched stub, and the note says which of the two situations you are in.
  *     A proxy or an injected response cannot be reconstructed at all, and that
  *     is stated rather than papered over with a plausible-looking body.
  *
@@ -24,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { type EnvId } from '../lib/environments';
 import { hhmm, STATUS_TEXT, statusTone } from '../lib/format';
+import { matchSource, useInstanceFacts } from '../lib/mb/instanceFacts';
 import { hasUnevaluablePredicate } from '../lib/mb/match';
 import { mkCondition, mkPred, mkResp, mkStub } from '../lib/mb/model';
 import type { Imposter, RecordedRequest, Resp, Stub } from '../lib/mb/types';
@@ -152,12 +156,40 @@ export function statusPillTone(status: number | null): PillTone {
   return tone === '' ? 'neutral' : tone;
 }
 
-/** Why the panel believes this status, spelled out per row. */
-export const STATUS_SOURCE_NOTE: Record<StatusSource, string> = {
-  stub: 'Read from the matched stub’s first response — mountebank did not record what it sent',
-  default: 'Nothing matched, so this is the imposter’s default response',
-  unknown: 'The matched stub proxies or injects, so the status it returned is not knowable',
-};
+/**
+ * Why the panel believes this status, spelled out per row.
+ *
+ * `unknown` used to say "proxies or injects" for every response that is not `is` — a set
+ * that includes `fault`, which does neither. A fault breaks the connection, so there was
+ * no status to return at all, and telling somebody the status is merely unknowable sends
+ * them looking for one. Each kind now says what it actually did.
+ *
+ * The `stub` note used to end "mountebank did not record what it sent", which is untrue
+ * on a --debug instance: it records the response and the processing time in the stub's
+ * `matches`. The panel does not read that, which is a different sentence — see
+ * src/lib/mb/instanceFacts.ts.
+ */
+export function statusSourceNote(outcome: DerivedOutcome, reportsMatches: boolean): string {
+  switch (outcome.statusSource) {
+    case 'default':
+      return 'Nothing matched, so this is the imposter’s default response';
+    case 'stub':
+      return reportsMatches
+        ? 'Read from the matched stub’s first response — mountebank recorded what it sent, but this panel does not read that yet'
+        : 'Read from the matched stub’s first response — this instance does not run with --debug, so mountebank did not record what it sent';
+    default:
+      switch (outcome.response?.type) {
+        case 'proxy':
+          return 'The matched stub proxies to a real service, so the status it returned is not knowable here';
+        case 'inject':
+          return 'The matched stub answers from injected JavaScript, so the status it returned is not knowable here';
+        case 'fault':
+          return 'The matched stub breaks the connection, so there was no status to return';
+        default:
+          return 'The matched stub does not answer with a fixed response, so the status it returned is not knowable here';
+      }
+  }
+}
 
 /** `401 Unauthorized`, or just the number when the code has no name here. */
 export const statusLabel = (status: number | null): string => {
@@ -254,6 +286,9 @@ export function RequestDrawer({
   const navigate = useNavigate();
   const outcome = deriveOutcome(imposter, request);
   const { stub, stubIndex, response } = outcome;
+  /* What this instance keeps, read from it rather than assumed — every note below that
+     says what mountebank did or did not record depends on it. */
+  const facts = useInstanceFacts(env);
 
   const imposterPath = `/${env}/imposters/${imposter.port}`;
 
@@ -282,7 +317,7 @@ export function RequestDrawer({
     {
       label: 'Status',
       value: outcome.status === null ? 'unknown' : String(outcome.status),
-      note: STATUS_SOURCE_NOTE[outcome.statusSource],
+      note: statusSourceNote(outcome, facts.reportsMatches),
     },
     {
       label: 'Duration',
@@ -293,7 +328,7 @@ export function RequestDrawer({
     {
       label: 'Matched',
       value: stubIndex === null ? 'none' : `#${stubIndex + 1}`,
-      note: 'Computed by evaluating predicates — mountebank does not report the match',
+      note: matchSource(facts),
     },
   ];
 

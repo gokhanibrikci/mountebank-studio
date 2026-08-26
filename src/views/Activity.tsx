@@ -27,7 +27,8 @@ import { getImposter } from '../lib/mb/client';
 import { findMatchingStub } from '../lib/mb/match';
 import { imposterFromMb, pretty } from '../lib/mb/model';
 import type { Imposter, MbRecordedRequest, RecordedRequest } from '../lib/mb/types';
-import { mbKeys, useConfig, useImposters, type ImposterDetail } from '../lib/queries';
+import { useInstanceFacts, whyMatchIsComputed, matchSource } from '../lib/mb/instanceFacts';
+import { mbKeys, useImposters, type ImposterDetail } from '../lib/queries';
 import { sigOf } from '../lib/summaries';
 import { Failure } from './Failure';
 import { useStudio } from '../store/useStudio';
@@ -50,7 +51,7 @@ import {
   statusLabel,
   statusPillTone,
   RequestDrawer,
-  STATUS_SOURCE_NOTE,
+  statusSourceNote,
   type DerivedOutcome,
 } from './RequestDrawer';
 import styles from './Activity.module.css';
@@ -119,22 +120,21 @@ function rowMatches(row: Row, filter: Filter): boolean {
   return row.outcome.status !== null && row.outcome.status >= 400;
 }
 
-const DERIVED_TITLE =
-  'Derived from the matched stub — mountebank does not store the response it sent';
-const MATCH_TITLE = 'Computed by evaluating predicates — mountebank does not report the match';
-
 /**
  * The standing explanation of the screen: how a log with no responses in it can
- * still show a status and a matched stub. Always true, so it carries no counts
- * and is shown while the queries are still in flight as well.
+ * still show a status and a matched stub.
+ *
+ * It used to state, flatly, that mountebank does not store the response it sent — while
+ * conditioning the missing MATCH on `--debug` in the same sentence. Both come from the
+ * same flag: a --debug instance records the response, the processing time and the match
+ * in each stub's `matches`. The panel does not read that, which is a different sentence
+ * and now told as one. See src/lib/mb/instanceFacts.ts.
  */
-function HowToRead() {
+function HowToRead({ env }: { env: EnvId }) {
+  const facts = useInstanceFacts(env);
   return (
     <Strip tone="info" icon={<Icon name="reqs" />} title="How to read this log">
-      Mountebank stores the requests an imposter received, but not the response it sent, and it only
-      reports which stub answered when it runs with <code>--debug</code>. So the matched stub and
-      the response shown here are worked out by this panel from the stub&apos;s own predicates —
-      first match wins, exactly as Mountebank resolves a request.
+      {whyMatchIsComputed(facts)} First match wins, exactly as Mountebank resolves a request.
     </Strip>
   );
 }
@@ -174,10 +174,9 @@ export function Activity() {
   const navigate = useNavigate();
   const impostersQuery = useImposters(env);
   const imposters = impostersQuery.data ?? [];
-  /* Whether this instance keeps requests regardless of what an imposter asked for, and
-     how many imposters asked for it — the two facts that decide whether this log can
-     ever fill. Read from the instance, not assumed. */
-  const mock = useConfig(env).data?.options.mock;
+  /* What this instance keeps and reports, read from it — the facts every sentence on
+     this screen about mountebank's own records depends on. */
+  const facts = useInstanceFacts(env);
   const recording = imposters.filter((imposter) => imposter.recordRequests).length;
 
   // a port is an imposter's identity, so a non-port is not worth a request
@@ -256,7 +255,7 @@ export function Activity() {
     return (
       <>
         <PageHead title="Activity" />
-        <HowToRead />
+        <HowToRead env={env} />
         <Card>
           <p className={styles.state}>
             <Icon name="clock" />
@@ -271,7 +270,7 @@ export function Activity() {
     return (
       <>
         <PageHead title="Activity" />
-        <HowToRead />
+        <HowToRead env={env} />
         <Card title="Could not reach Mountebank">
           {/*
            * A column, not a paragraph followed by a loose button: the cause is a long
@@ -320,7 +319,7 @@ export function Activity() {
         }
       />
 
-      <HowToRead />
+      <HowToRead env={env} />
 
       {imposters.length === 0 ? (
         <EmptyState
@@ -335,8 +334,7 @@ export function Activity() {
             </Button>
           }
         >
-          {environment.label} is running mountebank, but it has no imposters — so there are no ports
-          to receive traffic yet.
+          No imposters here yet — nothing in {environment.label} is listening for traffic.
         </EmptyState>
       ) : (
         <>
@@ -381,15 +379,20 @@ export function Activity() {
                     <th>Method</th>
                     <th>Path</th>
                     <th>Imposter</th>
-                    <th title={DERIVED_TITLE}>Status</th>
-                    <th title={DERIVED_TITLE}>Duration</th>
-                    <th title={MATCH_TITLE}>Matched stub</th>
+                    <th title={matchSource(facts)}>Status</th>
+                    <th title={matchSource(facts)}>Duration</th>
+                    <th title={matchSource(facts)}>Matched stub</th>
                     <th>When</th>
                   </tr>
                 }
               >
                 {shown.map((row) => (
-                  <RequestRow key={row.request.id} row={row} onOpen={openRow} />
+                  <RequestRow
+                    key={row.request.id}
+                    row={row}
+                    onOpen={openRow}
+                    reportsMatches={facts.reportsMatches}
+                  />
                 ))}
               </Table>
             </Card>
@@ -405,8 +408,23 @@ export function Activity() {
               Nothing in the log matches this filter. {plural(rows.length, 'request')} captured in
               total.
             </EmptyState>
+          ) : loadedDetails.length === 0 && failed.length > 0 ? (
+            /* Nothing was read, so nothing is known about the log. Saying it is empty and
+               inviting more traffic sends somebody to generate requests to fix a failed
+               read. The strip above already names the cause. */
+            <EmptyState
+              title="Could not read the request log"
+              action={
+                <Button icon={<Icon name="bolt" />} onClick={refreshAll}>
+                  Try again
+                </Button>
+              }
+            >
+              {plural(failed.length, 'imposter')} could not be read, and none answered, so there is
+              nothing to show — this is not the same as a log with nothing in it.
+            </EmptyState>
           ) : (
-            <EmptyState title="Nothing captured yet">
+            <EmptyState title={failed.length > 0 ? 'Nothing captured yet from the imposters that answered' : 'Nothing captured yet'}>
               {/*
                 What follows has to be read off THIS instance.
                 
@@ -418,7 +436,7 @@ export function Activity() {
               */}
               Send a request to one of the {plural(imposters.length, 'imposter')} in{' '}
               {environment.label} and it appears here.{' '}
-              {mock === true ? (
+              {facts.recordsEverything ? (
                 <>
                   This instance runs with <span className="mono">--mock</span>, so what they
                   receive is kept even where an imposter has{' '}
@@ -453,7 +471,15 @@ export function Activity() {
    Pieces
    ══════════════════════════════════════════════════════════════ */
 
-function RequestRow({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
+function RequestRow({
+  row,
+  onOpen,
+  reportsMatches,
+}: {
+  row: Row;
+  onOpen: (row: Row) => void;
+  reportsMatches: boolean;
+}) {
   const { request, imposter, outcome } = row;
   const stub = outcome.stub;
   const signature = stub ? sigOf(stub) : null;
@@ -478,7 +504,7 @@ function RequestRow({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
         </button>
       </td>
       <td className={styles.nowrap}>{imposter.name || `port ${imposter.port}`}</td>
-      <td title={STATUS_SOURCE_NOTE[outcome.statusSource]}>
+      <td title={statusSourceNote(outcome, reportsMatches)}>
         <Pill tone={statusPillTone(outcome.status)}>
           {outcome.status === null ? 'unknown' : outcome.status}
         </Pill>

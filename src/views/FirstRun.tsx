@@ -31,7 +31,7 @@ import { useNavigate } from 'react-router-dom';
 
 import type { EnvId, MbEnvironment } from '../lib/environments';
 import { plural } from '../lib/format';
-import { useReach } from '../lib/mb/reach';
+import { isForwarded, useReach } from '../lib/mb/reach';
 import { useEnvironments, type EnvironmentDraft } from '../store/useEnvironments';
 import { useStudio } from '../store/useStudio';
 import { Button, Icon, Modal, PageHead, Pill, Section, Strip } from '../ui';
@@ -90,10 +90,22 @@ export function FirstRun() {
   }, [loadForwarding]);
 
   const command = `mb start --origin "${window.location.origin}"`;
-  /* For someone who has no instance at all: npx needs no install and no config. */
+  /*
+   * For someone who has no instance at all: npx needs no install and no config.
+   *
+   * The port is explicit, and it is not 2525. When this page is served by
+   * `mountebank-studio`, 2525 is where the instance it started already is — so the
+   * default would collide, the command would fail with EADDRINUSE, and the address the
+   * paragraph then tells you to add is one you already have.
+   *
+   * --nologfile because the sentence beside it says the command leaves nothing behind.
+   * Without it mountebank writes mb.log into the directory you ran it from and leaves it
+   * there after Ctrl-C. Measured on 2.9.4.
+   */
+  const startPort = 2526;
   const startCommand = canForward
-    ? 'npx @mbtest/mountebank@2.9.4'
-    : `npx @mbtest/mountebank@2.9.4 --origin "${window.location.origin}"`;
+    ? `npx @mbtest/mountebank@2.9.4 --port ${startPort} --nologfile`
+    : `npx @mbtest/mountebank@2.9.4 --port ${startPort} --nologfile --origin "${window.location.origin}"`;
 
   function openAdd(): void {
     setEditingId(null);
@@ -282,7 +294,7 @@ export function FirstRun() {
           <div className={styles.startBar}>
             <p className={styles.startNote}>
               {many
-                ? `Start opens ${picked.label} — switch any time from the header.`
+                ? `Start opens ${picked.label} — switch any time in Settings, or with ⌘K.`
                 : `Start opens ${picked.label}. More can be added later in Settings.`}
             </p>
             <Button variant="primary" icon={<Icon name="dash" />} onClick={start}>
@@ -367,14 +379,14 @@ export function FirstRun() {
       >
         <p className={styles.copy}>
           {list.length === 0
-            ? 'One command starts one. It needs Node and nothing else, and it leaves nothing behind when you stop it.'
-            : 'One command starts another, on a port of its own. It needs Node and nothing else, and it leaves nothing behind when you stop it.'}
+            ? `One command starts one, on port ${startPort}. It needs Node and nothing else, and it leaves nothing behind when you stop it — its imposters live in memory, so they go with it.`
+            : `One command starts another, on port ${startPort} so it cannot collide with what is already running. It needs Node and nothing else, and it leaves nothing behind when you stop it — its imposters live in memory, so they go with it.`}
         </p>
         <pre className={styles.cmdBlock}>
           <code>{startCommand}</code>
         </pre>
         <p className={styles.copy}>
-          Then add <span className="mono">http://localhost:2525</span> above.{' '}
+          Then add <span className="mono">http://localhost:{startPort}</span> above.{' '}
           {canForward
             ? /* The command above carries no --origin, and this is why: the flag would answer
                  a question this host has already taken off the table. */
@@ -417,7 +429,13 @@ export function FirstRun() {
       >
         <p className={styles.copy}>
           This forgets the connection in this browser. The instance itself, and every imposter on
-          it, are left exactly as they are.
+          it, are left exactly as they are.{' '}
+          {/* The one this host publishes comes straight back on the next load — it is what
+              the command started, not a preference. Saying nothing about that made the
+              return look like a bug. */}
+          {removing !== undefined && isForwarded(removing.target)
+            ? 'This host serves that instance itself, so it will be listed again the next time the panel loads.'
+            : null}
         </p>
       </Modal>
     </SoloFrame>

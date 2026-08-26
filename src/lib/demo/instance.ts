@@ -158,7 +158,7 @@ export function handle(
         if (bad !== null) return errorReply(400, 'bad data', bad);
       }
       const created: MbImposter = { ...wanted, numberOfRequests: 0, requests: [] };
-      imposters = [...imposters, created].sort((a, b) => a.port - b.port);
+      imposters = [...imposters, created].sort((a, b) => (a.port ?? 0) - (b.port ?? 0));
       return { status: 201, data: created };
     }
     if (verb === 'PUT') {
@@ -173,7 +173,7 @@ export function handle(
       }
       imposters = list
         .map((i) => ({ ...i, numberOfRequests: 0, requests: [] }))
-        .sort((a, b) => a.port - b.port);
+        .sort((a, b) => (a.port ?? 0) - (b.port ?? 0));
       return ok({ imposters: imposters.map(replayable) });
     }
   }

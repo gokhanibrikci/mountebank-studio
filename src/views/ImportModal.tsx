@@ -113,7 +113,11 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
       setConfirming(true);
       return;
     }
-    onImport(parsed.imposters.map(imposterFromMb), mode, removed.map((i) => i.port));
+    onImport(
+      parsed.imposters.map(imposterFromMb),
+      mode,
+      removed.flatMap((i) => (typeof i.port === 'number' ? [i.port] : [])),
+    );
   }
 
   /** What the button is about to do, in ports rather than adjectives. */
@@ -182,8 +186,12 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
         <div className={styles.problems}>
           <p className={styles.problemHead}>
             <Icon name="alert" />
-            {plural(parsed.problems.length, 'line')} in this file could not be used
-            {usable ? ' — the rest still can be' : ''}
+            {/* They are not lines — they are named as "the file", "the imposter" or
+                "imposter 2 of 5", and one imposter can raise several. And a problem does
+                not always mean something was skipped: an unknown protocol is kept and
+                reported. */}
+            {plural(parsed.problems.length, 'problem')} in this file
+            {usable ? ' — the rest is usable' : ''}
           </p>
           <ul>
             {parsed.problems.map((problem) => (
@@ -276,7 +284,7 @@ export function ImportModal({ open, onClose, existing, busy, onImport }: ImportM
             ) : (
               <>
                 This will {consequence}. Captured requests do not survive a replaced imposter —
-                mountebank has no partial update.
+                mountebank has no PUT for a single imposter.
               </>
             )}
           </p>

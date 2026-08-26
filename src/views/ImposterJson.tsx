@@ -124,8 +124,9 @@ export function ImposterJson({ imposter, saving, onApply }: ImposterJsonProps) {
 
       <p className={styles.note}>
         This is exactly what gets POSTed to <span className="mono">/imposters</span>. Applying
-        deletes the imposter and creates it again from this text — mountebank has no partial update,
-        so its captured requests do not survive.
+        deletes the imposter and creates it again from this text — mountebank has no PUT for a
+        single imposter, so its captured requests do not survive. Editing one stub does not go
+        through here and keeps them.
       </p>
     </Section>
   );

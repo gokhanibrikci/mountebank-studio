@@ -14,7 +14,9 @@
 
 import type { KeyboardEvent, ReactNode } from 'react';
 
+import { type EnvId } from '../lib/environments';
 import { plural } from '../lib/format';
+import { useInstanceFacts } from '../lib/mb/instanceFacts';
 import { hasUnevaluablePredicate } from '../lib/mb/match';
 import type { Stub } from '../lib/mb/types';
 import { RTYPE, respTone, respondOf, sigOf, whenOf, type RespTone } from '../lib/summaries';
@@ -82,6 +84,8 @@ function paint(text: string, re: RegExp): ReactNode {
 /* ────────────────────────────────  the list  ───────────────────────────── */
 
 export interface StubListProps {
+  /** Whose instance these stubs are on — the hit note quotes its flags. */
+  env: EnvId;
   stubs: Stub[];
   /**
    * Hit count per stub index, computed from the captured request log —
@@ -103,12 +107,17 @@ export interface StubListProps {
 const pillTone = (tone: RespTone): PillTone => (tone === '' ? 'neutral' : tone);
 
 export function StubList({
+  env,
   stubs,
   hits,
   onOpen,
   onMove,
   busy = false,
 }: StubListProps) {
+  /* The hit tooltip claims what mountebank does and does not report, which turns on
+     --debug — so it has to be read from the instance. */
+  const facts = useInstanceFacts(env);
+
   if (!stubs.length) {
     return (
       <EmptyState
@@ -187,7 +196,9 @@ export function StubList({
                     title={
                       unevaluable
                         ? 'Computed from the captured requests. This stub has a predicate the panel cannot evaluate, so the count may be low.'
-                        : 'Computed from the captured requests — mountebank does not report per-stub hits.'
+                        : facts.reportsMatches
+                          ? 'Computed from the captured requests. This instance runs with --debug, so mountebank recorded the matches itself, but the panel does not read that yet.'
+                          : 'Computed from the captured requests — this instance does not run with --debug, so mountebank does not report per-stub hits.'
                     }
                   >
                     {unevaluable ? `${plural(computedHits, 'hit')}?` : plural(computedHits, 'hit')}

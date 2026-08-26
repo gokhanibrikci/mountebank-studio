@@ -93,7 +93,12 @@ export interface MbStub {
  */
 export interface MbImposter {
   protocol: string;
-  port: number;
+  /**
+   * Absent when mountebank should choose one. It answers a POST with no `port` by
+   * assigning a free one; a POST with `port: null` is a 500, so the writer omits the field
+   * rather than sending an empty value.
+   */
+  port?: number;
   name?: string;
   recordRequests?: boolean;
   defaultResponse?: unknown;
@@ -131,6 +136,12 @@ export interface MbConfig {
     ipWhitelist?: string[];
     /** Where imposters are written. Absent when the instance keeps them in memory. */
     datadir?: string;
+    /** Only reported when `--host` was given; the instance binds every interface without it. */
+    host?: string;
+    /** Only reported when a custom repository module was given. */
+    impostersRepository?: string;
+    /** Only reported when `--noParse` was given. */
+    noParse?: boolean;
     port?: number;
     mock?: boolean;
     debug?: boolean;

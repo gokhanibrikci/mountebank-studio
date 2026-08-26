@@ -47,8 +47,11 @@ await readyToRoute();
 
 /*
  * A first run served by `npx mountebank-studio` gets its environment from the host that
- * served it, so nobody has to type a path this server invented. Nothing is adopted when
- * this browser already has a list of its own.
+ * served it, so nobody has to type an address it already publishes. It is ADDED even when
+ * this browser has a list of its own — the rule that said otherwise was the bug — and
+ * skipped only when the instance is already listed, or was offered once before. The one
+ * exception is the instance this host serves, which is listed on every start: that is not
+ * a preference, it is what the process is.
  *
  * Adopting one still opens the welcome, once. Landing straight in the shell meant the
  * screen explaining what a mock is made of — and how to stand an instance up — was seen

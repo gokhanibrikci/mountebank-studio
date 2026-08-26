@@ -62,12 +62,17 @@ const FAULTS: { value: MbFault; label: string; hint: string }[] = [
   {
     value: 'CONNECTION_RESET_BY_PEER',
     label: 'Reset the connection',
-    hint: 'The socket is closed with no reply at all — the caller sees ECONNRESET.',
+    /* Not a reset: mountebank calls socket.destroy() after the request has been read, so
+       the caller gets a clean close with nothing in it. Naming an errno it does not
+       receive sends people looking for the wrong thing in their logs. */
+    hint: 'The socket is closed with no reply at all — the caller sees an empty response and a dropped connection.',
   },
   {
     value: 'RANDOM_DATA_THEN_CLOSE',
     label: 'Send garbage, then close',
-    hint: 'Random bytes go back before the socket closes, so the caller has to fail parsing.',
+    /* "Random" is the fault's NAME, not its behaviour: mountebank writes one hardcoded
+       32-byte string, the same on every request. */
+    hint: 'A short fixed run of garbage bytes goes back before the socket closes, so the caller has to fail parsing.',
   },
 ];
 
@@ -86,13 +91,30 @@ const FORWARD_MODES: { value: MbProxyMode; label: string }[] = [
 const RECORDED_PARTS: {
   key: 'genMethod' | 'genPath' | 'genQuery' | 'genBody';
   label: string;
+  /** Reading the flag, so the hint can say what nothing-ticked actually does. */
+  on: (proxy: ProxyResponse) => boolean;
   set: (proxy: ProxyResponse, on: boolean) => ProxyResponse;
 }[] = [
-  { key: 'genMethod', label: 'Method', set: (p, on) => ({ ...p, genMethod: on }) },
-  { key: 'genPath', label: 'Path', set: (p, on) => ({ ...p, genPath: on }) },
-  { key: 'genQuery', label: 'Query', set: (p, on) => ({ ...p, genQuery: on }) },
-  { key: 'genBody', label: 'Body', set: (p, on) => ({ ...p, genBody: on }) },
+  { key: 'genMethod', label: 'Method', on: (p) => p.genMethod === true, set: (p, on) => ({ ...p, genMethod: on }) },
+  { key: 'genPath', label: 'Path', on: (p) => p.genPath === true, set: (p, on) => ({ ...p, genPath: on }) },
+  { key: 'genQuery', label: 'Query', on: (p) => p.genQuery === true, set: (p, on) => ({ ...p, genQuery: on }) },
+  { key: 'genBody', label: 'Body', on: (p) => p.genBody === true, set: (p, on) => ({ ...p, genBody: on }) },
 ];
+
+/**
+ * What each forwarding mode actually does with a recorded reply.
+ *
+ * Measured against 2.9.4: proxyOnce saves the recording ahead of the proxy stub, so the
+ * next matching call is answered from it; proxyAlways saves it behind, so the proxy keeps
+ * winning the match and nothing is ever replayed; proxyTransparent records nothing.
+ */
+const PROXY_MODE_HINT: Record<MbProxyMode, string> = {
+  proxyOnce:
+    'The first reply is recorded as a new answer that takes over from then on — the real service is called once.',
+  proxyAlways:
+    'Every request keeps going to the real service. The replies are recorded behind this answer, so they pile up but are never replayed.',
+  proxyTransparent: 'Nothing is recorded — every request goes straight through, every time.',
+};
 
 interface StepSpec {
   /** Sentence case — it names the step in the row. */
@@ -116,23 +138,32 @@ const STEP_SPEC: Record<MbBehaviorName, StepSpec> = {
     placeholder: '(request, response) => { response.body += "!" }',
     hint: 'Run JavaScript over the finished answer. Needs injection switched on.',
   },
+  /*
+   * `copy` and `lookup` are OBJECTS to mountebank — `{from, into, using}` and
+   * `{key, fromDataSource, into}` — and this panel writes whatever is typed as a bare
+   * string. So the arrow syntax and the file path these placeholders used to show were
+   * not shorthand for anything: following either one made the stub unsavable. They now
+   * show the shape mountebank actually takes, and say where to edit it.
+   */
   copy: {
     label: 'Copy from the request',
     action: 'Copy From Request',
-    placeholder: '$..applicationId → ${APPID}',
-    hint: 'Lift a value out of the request and paste it into the answer.',
+    placeholder: '{"from":"body","into":"${APPID}","using":{"method":"jsonpath","selector":"$..applicationId"}}',
+    hint: 'Lift a value out of the request and paste it into the answer. Mountebank takes an object here — from, into and using — so it is written in the JSON view.',
   },
   lookup: {
     label: 'Look up in a file',
     action: 'Look Up In A File',
-    placeholder: '/data/cards.csv',
-    hint: 'Fill the answer from a row of an external data file.',
+    placeholder: '{"key":{"from":"path","using":{"method":"regex","selector":"[^/]+$"}},"fromDataSource":{"csv":{"path":"/data/cards.csv","keyColumn":"pan"}},"into":"${row}"}',
+    hint: 'Fill the answer from a row of an external data file. Mountebank takes an object here — key, fromDataSource and into — so it is written in the JSON view.',
   },
   shellTransform: {
     label: 'Shell command',
     action: 'Shell Command',
     placeholder: './transform.sh',
-    hint: 'Pipe the answer through a shell command.',
+    /* Mountebank refuses to save a shellTransform without --allowInjection, exactly as it
+       refuses inject and decorate — and only those two said so. */
+    hint: 'Pipe the answer through a shell command. Needs injection switched on.',
   },
 };
 
@@ -252,7 +283,10 @@ function HeaderLines({ resp, disabled, onPatch }: PartProps): ReactElement {
   }
 
   return (
-    <Field label="Headers" hint="Sent back with the reply, exactly as written.">
+    <Field
+      label="Headers"
+      hint="Sent back with the reply as written — names, casing and values are untouched. Mountebank still recalculates Content-Length if you set it."
+    >
       {lines.map((line, index) => (
         <div className={styles.kvLine} key={line.id}>
           <Input
@@ -368,7 +402,11 @@ function ForwardFields({ resp, disabled, onPatch }: PartProps): ReactElement {
 
       <Field
         label="How often it forwards"
-        hint="A recorded reply is saved as a new answer, so the mock can reply on its own from then on."
+        /* One sentence for three modes, and it was only true of proxyOnce. Transparent
+           saves nothing; proxyAlways saves behind the proxy stub, so the proxy keeps
+           winning and nothing is ever replayed. It also contradicted the option label
+           sitting right above it, "Pass through and record nothing". */
+        hint={PROXY_MODE_HINT[resp.proxy.mode]}
       >
         <Select
           value={resp.proxy.mode}
@@ -390,7 +428,15 @@ function ForwardFields({ resp, disabled, onPatch }: PartProps): ReactElement {
 
       <Field
         label="Recorded requests must match on"
-        hint="The parts you tick become the conditions of the saved answer, so it replies to these requests and no others."
+        hint={
+          resp.proxy.mode === 'proxyTransparent'
+            ? 'Nothing is saved in this mode, so these have no effect.'
+            : RECORDED_PARTS.some((part) => part.on(resp.proxy))
+              ? 'The parts you tick become the conditions of the saved answer, so it replies to these requests and no others.'
+              : /* predicates: [] answers everything — the opposite of what the old
+                   sentence promised, and one click away in four places. */
+                'Nothing ticked — the saved answer will have no conditions and will reply to every request.'
+        }
       >
         <div className={styles.switches}>
           {RECORDED_PARTS.map((part) => (
@@ -777,7 +823,11 @@ export function AnswerForm({
     <div className={styles.form}>
       {first === undefined ? (
         <p className={styles.lead}>
-          This stub answers nothing yet, so Mountebank would reply with a bare 200.
+          {/* Mountebank refuses a stub whose `responses` is empty — 400, on every write
+              endpoint — so this state has no runtime meaning at all, and calling it a
+              bare 200 described the one thing it cannot do. */}
+          This stub has no answers yet. Mountebank refuses to save a stub with none, so add
+          one before saving.
         </p>
       ) : (
         <Answer

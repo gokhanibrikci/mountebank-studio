@@ -55,11 +55,22 @@ function uptimeText(seconds: number | undefined): string {
 /**
  * The origins this instance was started with.
  *
- * `--origin` is mountebank's CORS switch — there is no `allowCORS` option in this
- * version — and `GET /config` reports it as `options.origin`: the pipe-separated
- * allowlist, or `false` when the instance was started without one. It is read
- * defensively because it is the single field the panel's own ability to read this
- * instance depends on, and an older instance may not send it at all.
+ * `--origin` is mountebank's CORS switch — there is no `allowCORS` option in this version
+ * — and `GET /config` reports it as `options.origin`, `false` when it was started without
+ * one.
+ *
+ * IT IS NOT A PIPE-SEPARATED LIST. That belief was here and in the README, and it was
+ * wrong in a way that mattered: mountebank hands the value straight to the `cors`
+ * middleware (`mountebank.js:81`), so `--origin "a|b"` echoes the literal string
+ * `a|b` as `Access-Control-Allow-Origin`, which is not a valid origin and which no
+ * browser accepts — the panel reported such an instance as allowing this page, and
+ * printed that command as the fix. Measured on 2.9.4.
+ *
+ * Several origins come from REPEATING the flag, which yargs collects into an array and
+ * `cors` matches one at a time (verified: a third origin then gets no header at all).
+ *
+ * Read defensively: it is the single field the panel's ability to read this instance
+ * depends on, and an older instance may not send it at all.
  */
 function allowedOrigins(config: MbConfig): string[] {
   const options: unknown = config.options;
@@ -67,8 +78,7 @@ function allowedOrigins(config: MbConfig): string[] {
     typeof options === 'object' && options !== null
       ? (options as { origin?: unknown }).origin
       : undefined;
-  const parts =
-    typeof origin === 'string' ? origin.split('|') : Array.isArray(origin) ? origin : [];
+  const parts = typeof origin === 'string' ? [origin] : Array.isArray(origin) ? origin : [];
   return parts
     .filter((part): part is string => typeof part === 'string')
     .map((part) => part.trim())
@@ -105,7 +115,8 @@ function cliLine(config: MbConfig): string {
   if (options.port !== undefined) parts.push(`--port ${options.port}`);
   if (options.configfile) parts.push(`--configfile ${options.configfile}`);
   if (options.allowInjection) parts.push('--allowInjection');
-  if (origins.length > 0) parts.push(`--origin "${origins.join('|')}"`);
+  /* Repeated, not joined: a pipe-joined value is a single invalid origin. */
+  for (const origin of origins) parts.push(`--origin "${origin}"`);
   if (options.localOnly) parts.push('--localOnly');
   /*
    * `*` is mountebank's own default, and a line headed "Started with" must not attribute
@@ -114,9 +125,21 @@ function cliLine(config: MbConfig): string {
   if (options.ipWhitelist !== undefined && options.ipWhitelist.join('|') !== '*') {
     parts.push(`--ipWhitelist ${options.ipWhitelist.join('|')}`);
   }
-  /* The flag that decides whether imposters outlive the process, so it belongs in a line
-     claiming to reproduce this instance. */
+  /*
+   * Everything below changes the instance materially and is reported only when it was
+   * given, so a line headed "Started with" has to carry it. `--datadir` decides whether
+   * imposters outlive the process; `--host` decides what the admin API binds to; a custom
+   * repository decides where they are kept at all.
+   *
+   * `--apikey` is deliberately not here: it is reported, and printing a secret into a
+   * copyable line is not something a panel should do.
+   */
   if (options.datadir) parts.push(`--datadir ${options.datadir}`);
+  if (options.host) parts.push(`--host ${options.host}`);
+  if (options.impostersRepository) {
+    parts.push(`--impostersRepository ${options.impostersRepository}`);
+  }
+  if (options.noParse === true) parts.push('--noParse');
   if (options.mock) parts.push('--mock');
   if (options.debug) parts.push('--debug');
   return parts.join(' ');
@@ -141,6 +164,7 @@ export function Settings() {
   const navigate = useNavigate();
 
   const { list, add, update, remove } = useEnvironments();
+  const dropped = useEnvironments((state) => state.dropped);
 
   /* The URL wins when it names one of this browser's environments, so a shared
      link lands on the same instance; the store is the fallback and the first
@@ -228,8 +252,9 @@ export function Settings() {
       <PageHead title="Settings" />
 
       <Strip tone="info" icon={<Icon name="cog" />} title="What you can change here">
-        The environments below live in this browser only — nobody else sees them, and clearing site
-        data forgets them. Each one names one Mountebank admin API, and nothing else: an address,
+        The environments below live in this browser only — nobody else sees them, and they are gone
+        if <b>you</b> clear this site&rsquo;s data in your browser. Nothing here is written to your
+        machine; the imposters are, by the instance itself. Each one names one Mountebank admin API, and nothing else: an address,
         the way you would <span className="mono">curl</span> it. How the panel gets there is not
         part of that and not a choice — if the host serving this page forwards to that instance, as
         it does for the one <span className="mono">mountebank-studio</span> starts, the call goes{' '}
@@ -237,8 +262,8 @@ export function Settings() {
         otherwise it is called <b>directly</b>, which needs that instance to allow this origin (
         <code className={styles.cmd}>mb start --origin &quot;{origin}&quot;</code>). Each
         environment&rsquo;s own <b>Reached by</b> line below says which of the two it got.
-        Everything under this block is read from the instance you are pointed at, or an action that
-        runs against it. A port, a stub or whether requests are recorded belongs to an imposter and
+        The blocks after the environments are read from the instance you are pointed at, or act on
+        it — apart from the last, which is about this panel itself. A port, a stub or whether requests are recorded belongs to an imposter and
         is edited on that imposter&rsquo;s own screen.
       </Strip>
 
@@ -254,6 +279,18 @@ export function Settings() {
           )
         }
       >
+        {/* What was removed on start, said somewhere it cannot expire. The toast that
+            announced it lives 3.2 seconds; deleting a row somebody typed deserves a
+            record that outlasts looking away. */}
+        {dropped.length > 0 ? (
+          <Strip tone="warn" icon={<Icon name="alert" />} title="Removed on start">
+            {dropped.map((env) => `${env.label} (${env.target})`).join(', ')} —{' '}
+            {dropped.length === 1 ? 'that address is' : 'those addresses are'} this page, not a
+            Mountebank admin API, so {dropped.length === 1 ? 'it was' : 'they were'} dropped. An
+            instance answers on its own port.
+          </Strip>
+        ) : null}
+
         {list.length === 0 ? (
           <EmptyState
             title="No environments yet"
@@ -511,13 +548,23 @@ function Instance({ environment }: { environment: MbEnvironment }) {
                   a direct call this instance allows
                 </Pill>
               ) : (
+                /* This pill only renders after a direct cross-origin read SUCCEEDED, which
+                   is proof the call was allowed — by this instance or by something in
+                   front of it that the panel cannot see. So it reports the reading, not a
+                   verdict on the call. */
                 <Pill tone="warn" dot>
-                  a direct call this instance does not allow
+                  a direct call — this instance lists no --origin for this page
                 </Pill>
               ),
             ...(forwardedVia !== null
               ? {
-                  note: `Every request goes to ${forwardedVia} on this origin and is forwarded from there, so no --origin flag is involved. The panel chose that route itself, from what this host publishes.`,
+                  note:
+                    `Every request goes to ${forwardedVia} on this origin and is forwarded from there, so no --origin flag is involved.` +
+                    /* Only the panel's own doing when it resolved an address to a route.
+                       A path typed into the form was chosen by whoever typed it. */
+                    (isProxied(environment.target)
+                      ? ' This environment names that route directly.'
+                      : ' The panel chose that route itself, from what this host publishes.'),
                 }
               : allowed
                 ? {}
@@ -527,13 +574,19 @@ function Instance({ environment }: { environment: MbEnvironment }) {
           },
           {
             label: 'Matched stub',
-            value: config.data.options.debug ? (
-              <Pill tone="ok" dot>
-                reported by mountebank
-              </Pill>
-            ) : (
-              <Pill dot>computed by this panel</Pill>
-            ),
+            /*
+             * Always the panel's own answer. This row used to claim "reported by
+             * mountebank" on a --debug instance, which is true of the admin API and false
+             * of this panel: nothing here reads the `matches` array mountebank attaches
+             * under that flag. Four other screens state the rule correctly, and on a
+             * --debug instance this pill contradicted every one of them.
+             */
+            value: <Pill dot>computed by this panel</Pill>,
+            ...(config.data.options.debug === true
+              ? {
+                  note: 'This instance runs with --debug, so mountebank recorded the match itself. The panel does not read that yet.',
+                }
+              : {}),
           },
           { label: 'Uptime', value: uptimeText(config.data.process?.uptime), mono: true },
           { label: 'Started with', value: cliLine(config.data), mono: true },
@@ -561,7 +614,7 @@ function Instance({ environment }: { environment: MbEnvironment }) {
           <p className={styles.quiet}>Asking {environment.label} what it is running…</p>
         ) : config.isError ? (
           <p className={styles.quiet}>
-            {environment.label} did not answer, so nothing here can be shown.{' '}
+            The panel could not read {environment.label}, so nothing here can be shown.{' '}
             <Failure target={environment.target} error={config.error} />
           </p>
         ) : (

@@ -96,6 +96,47 @@ jobs:
           curl -fsS -m 5 http://127.0.0.1:5399/mb/targets.json \
             | grep -qE '"local": *"http://127\.0\.0\.1:2599"'
 
+          echo "— an absent port is omitted, not sent as null"
+          # `port: null` is a 500 with an HTML body; no port at all is a 201 with one
+          # assigned. The import screen promises the second, so the writer must not send
+          # the first.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 \
+            -X POST http://127.0.0.1:5399/mb/local/imposters \
+            -H 'content-type: application/json' \
+            -d '{"protocol":"http","port":null,"stubs":[{"responses":[{"is":{"body":"x"}}]}]}')
+          if [ "$code" != "500" ]; then echo "port:null answered $code, not 500"; exit 1; fi
+          assigned=$(curl -sS -m 10 -X POST http://127.0.0.1:5399/mb/local/imposters \
+            -H 'content-type: application/json' \
+            -d '{"protocol":"http","stubs":[{"responses":[{"is":{"body":"x"}}]}]}' \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin).get("port",""))')
+          if [ -z "$assigned" ]; then echo "no port was assigned"; exit 1; fi
+          curl -fsS -m 5 -X DELETE "http://127.0.0.1:5399/mb/local/imposters/$assigned" -o /dev/null
+
+          echo "— --origin is one value, and repeating the flag is what makes a list"
+          # The panel reported a pipe-joined origin as an allowlist and printed it as the
+          # fix. Mountebank hands the string straight to cors, so it answers with an
+          # invalid origin no browser accepts.
+          node node_modules/@mbtest/mountebank/bin/mb --port 2598 --nologfile \
+            --origin "http://a.example" --origin "http://b.example" > origins.log 2>&1 &
+          for i in $(seq 30); do
+            if curl -fsS -m 2 http://127.0.0.1:2598/config > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS -m 5 http://127.0.0.1:2598/config \
+            | grep -qE '"origin": *\[' || { echo "repeating --origin did not make an array"; exit 1; }
+          hdr=$(curl -sS -D- -o /dev/null -m 5 -H 'Origin: http://a.example' http://127.0.0.1:2598/config \
+            | tr -d '\r' | grep -i '^access-control-allow-origin:' || true)
+          [ "$hdr" = "Access-Control-Allow-Origin: http://a.example" ] \
+            || { echo "unexpected CORS header: $hdr"; exit 1; }
+          curl -sS -D- -o /dev/null -m 5 -H 'Origin: http://c.example' http://127.0.0.1:2598/config \
+            | tr -d '\r' | grep -qi '^access-control-allow-origin:' \
+            && { echo "an unlisted origin was allowed"; exit 1; }
+          pkill -f 'port 2598' 2>/dev/null || true
+
+          echo "— the instance this server starts writes no log file where it was run"
+          # --nologfile: without it mountebank leaves mb.log in the working directory.
+          if [ -f mb.log ]; then echo "mb.log was left behind"; exit 1; fi
+
           echo "— a write gets through the forward"
           code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 \
             -X POST http://127.0.0.1:5399/mb/local/imposters \

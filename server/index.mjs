@@ -87,8 +87,9 @@ const HELP = `
                        loses it when you stop it
     --allow-injection  let stubs run JavaScript. This is code execution: only do
                        it on an instance you would trust with a shell
-    --insecure         do not verify the TLS certificate of --mb-url. For an instance
-                       behind a certificate you cannot fix, and nothing else
+    --insecure         stop verifying TLS certificates. It applies to EVERY https
+                       connection this process makes — the instance you name and any
+                       other it is later asked to forward to — not just to --mb-url
     --host <addr>      bind the panel to this address            (default 127.0.0.1)
                        0.0.0.0 exposes it to your network — see the warning it prints
     --version          print the version
@@ -289,11 +290,20 @@ function startMountebank(opts) {
   }
 
   /*
-   * --localOnly binds it to loopback, so nothing outside this machine can reach the
-   * admin API even if the panel itself is exposed. Injection stays off unless asked
-   * for: it executes JavaScript that arrives inside a stub.
+   * --localOnly makes it REFUSE connections from anything but this machine — it still
+   * listens on every interface; mountebank checks the source address per connection. So
+   * the admin API is not reachable from your network directly, though an exposed panel
+   * still forwards to it on /mb/local, which is what the --host warning is about.
+   * Injection stays off unless asked for: it executes JavaScript that arrives inside a
+   * stub.
    */
-  const args = [bin, '--port', String(opts.mbPort), '--localOnly'];
+  /*
+   * --nologfile because this process already reports what matters. Without it mountebank
+   * writes mb.log into whatever directory the command was run from — somebody's
+   * repository, typically — and leaves it there after Ctrl-C. Its warnings and errors are
+   * already forwarded to this terminal by pipeChild.
+   */
+  const args = [bin, '--port', String(opts.mbPort), '--localOnly', '--nologfile'];
   if (opts.allowInjection) args.push('--allowInjection');
 
   /* Mountebank creates the directory, nested parents included. */
@@ -688,7 +698,7 @@ async function main() {
           ? '  Injection is ON. Stubs on this instance can run JavaScript.\n'
           : '',
         opts.insecure
-          ? '  TLS verification is OFF for this upstream. Anything sitting between you and\n  it can read and change these requests.\n'
+          ? '  TLS verification is OFF for every https connection this process makes, not\n  just the one named. Anything sitting between you and them can read and change\n  these requests.\n'
           : '',
         opts.host === '0.0.0.0'
           ? '  This panel is exposed to your network, and whoever opens it can rewrite\n  these mocks. Put authentication in front of it.\n'

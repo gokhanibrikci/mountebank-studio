@@ -14,7 +14,8 @@
 import { Link, useLocation } from 'react-router-dom';
 
 import type { EnvId } from '../lib/environments';
-import { useCause } from '../lib/mb/reach';
+import { isOpaque, useCause } from '../lib/mb/reach';
+import { useInstanceFacts } from '../lib/mb/instanceFacts';
 import { useConfig, useImposters } from '../lib/queries';
 import { useEnvironments } from '../store/useEnvironments';
 import { Icon, type IconName } from '../ui';
@@ -68,7 +69,19 @@ export function Sidebar({ env }: SidebarProps) {
   const config = useConfig(env);
 
   const list = imposters.data ?? [];
+  /*
+   * `numberOfRequests` is what mountebank RECEIVED, not what it kept: it counts every
+   * request and stores it only when recording is on. The rail printed that number under
+   * "Everything captured", so an imposter that is not recording advertised traffic the
+   * Activity screen could not show — click it and the log is empty.
+   *
+   * The number is real and worth keeping, so the caption follows it rather than the other
+   * way round. The list view carries no request bodies (imposterToMb drops them), so a
+   * true captured count here would mean a fetch per imposter for a rail badge.
+   */
   const requestCount = list.reduce((n, i) => n + i.numberOfRequests, 0);
+  const facts = useInstanceFacts(env);
+  const allKept = facts.recordsEverything || list.every((i) => i.recordRequests === true);
 
   /* ---- counts: a number only once the query has actually answered ---- */
   const count = (n: number): string =>
@@ -88,16 +101,25 @@ export function Sidebar({ env }: SidebarProps) {
      written until the URL names one that exists. */
   const envDot: Dot = environment === undefined ? 'err' : 'ok';
 
-  const versionText = config.isPending
-    ? 'checking…'
-    : config.isError
-      ? 'unreachable'
-      : `mountebank ${config.data?.version ?? '?'}`;
-
   const failed = config.isError || imposters.isError;
   /* The footer is the one thing on screen in every state, so it is worth saying
      which of the two failures this is rather than just that there was one. */
   const cause = useCause(environment?.target ?? '', config.error ?? imposters.error);
+
+  /*
+   * "unreachable" was said for every failure, including the ones where the address
+   * answered and the panel read the answer — a 401 from an instance behind --apikey, a
+   * 404, a body that is not a config. Only an opaque error means nothing came back.
+   */
+  const versionText = config.isPending
+    ? 'checking…'
+    : config.isError
+      ? cause?.blocked === true
+        ? 'refusing this page'
+        : isOpaque(config.error)
+          ? 'unreachable'
+          : 'answered, but not a Mountebank'
+      : `mountebank ${config.data?.version ?? '?'}`;
 
   /* ---- one nav row, two lines, optional count ---- */
   const navRow = (section: Section, value?: string) => {
@@ -140,7 +162,14 @@ export function Sidebar({ env }: SidebarProps) {
       </Link>
 
       <nav className={styles.group} aria-label="Sections">
-        {SECTIONS.map((s) => navRow(s, countFor(s.slug)))}
+        {SECTIONS.map((s) =>
+          navRow(
+            s.slug === 'activity' && !allKept
+              ? { ...s, desc: 'Requests received' }
+              : s,
+            countFor(s.slug),
+          ),
+        )}
       </nav>
 
       <div className={styles.srcs}>
@@ -181,7 +210,9 @@ export function Sidebar({ env }: SidebarProps) {
             <span className={styles.footNote}>
               {cause?.blocked === true
                 ? `${environment?.label ?? 'This environment'} will not answer this page`
-                : `No answer from ${environment?.label ?? 'this environment'}`}
+                : isOpaque(config.error ?? imposters.error)
+                  ? `No answer from ${environment?.label ?? 'this environment'}`
+                  : `${environment?.label ?? 'This environment'} could not be read`}
             </span>
           ) : (
             <span className={styles.sign}>Keep It Simple</span>

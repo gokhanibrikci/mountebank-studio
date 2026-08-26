@@ -58,6 +58,12 @@ interface EnvironmentsState {
    * saved one before is left holding a row that cannot ever read anything.
    */
   dropOwnAddress: () => MbEnvironment[];
+  /**
+   * What `dropOwnAddress` removed this session, so Settings can say so somewhere that
+   * does not expire. Not persisted: the drop happens once, on the load that does it, and a
+   * notice about it should not outlive the session that earned it.
+   */
+  dropped: MbEnvironment[];
   add: (draft: EnvironmentDraft) => MbEnvironment;
   update: (id: EnvId, patch: Partial<EnvironmentDraft>) => void;
   remove: (id: EnvId) => void;
@@ -73,6 +79,7 @@ export const useEnvironments = create<EnvironmentsState>()(
   persist(
     (set, get) => ({
       list: seedFromEnv(import.meta.env.VITE_ENVIRONMENTS as string | undefined),
+      dropped: [],
 
       add: (draft) => {
         const created: MbEnvironment = {
@@ -153,7 +160,13 @@ export const useEnvironments = create<EnvironmentsState>()(
         const doomed = get().list.filter((env) => isOwnAddress(env.target));
         if (doomed.length === 0) return [];
         const gone = new Set(doomed.map((env) => env.id));
-        set({ list: get().list.filter((env) => !gone.has(env.id)) });
+        set({
+          list: get().list.filter((env) => !gone.has(env.id)),
+          /* Kept for Settings. A toast that expires in three seconds was the only record
+             that somebody's row had been deleted, which is exactly what the toast module
+             says a toast must never be. */
+          dropped: [...get().dropped, ...doomed],
+        });
         return doomed;
       },
 
@@ -162,7 +175,12 @@ export const useEnvironments = create<EnvironmentsState>()(
           list: get().list.map((e) => (e.id === id ? { ...e, forwarded: true } : e)),
         }),
     }),
-    { name: 'mountebank-studio-environments' },
+    {
+      name: 'mountebank-studio-environments',
+      /* Only these two belong on disk. `dropped` is a notice about this session, and
+         persisting it would keep announcing a removal made weeks ago. */
+      partialize: (state) => ({ list: state.list, offered: state.offered }),
+    },
   ),
 );
 

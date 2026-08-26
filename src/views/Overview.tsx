@@ -34,6 +34,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { type EnvId } from '../lib/environments';
 import { envOr } from '../store/useEnvironments';
 import { ago, hhmm, plural } from '../lib/format';
+import { matchSource, useInstanceFacts } from '../lib/mb/instanceFacts';
+import { hasUnevaluablePredicate } from '../lib/mb/match';
 import { imposterFromMb, imposterToMb } from '../lib/mb/model';
 import type { Imposter, RecordedRequest } from '../lib/mb/types';
 import { useCreateImposter, useDeleteImposter, useImposter, useImposters } from '../lib/queries';
@@ -204,8 +206,20 @@ function Stat({ value, label, meta }: StatProps) {
 
 /** The dot is colour only, so the level ships as text for screen readers too. */
 
-function Ev({ port, request }: { port: number; request: RecordedRequest }) {
+function Ev({
+  port,
+  request,
+  unconfirmed,
+}: {
+  port: number;
+  request: RecordedRequest;
+  /* The imposter has a predicate the editor cannot model, so `findMatchingStub` scored it
+     as a non-match without being able to say so. Every other screen hedges this case; this
+     row used to state it flatly, in the badge and in the screen-reader text. */
+  unconfirmed: boolean;
+}) {
   const matched = request.matchedStubIndex !== null;
+  const verdict = matched ? 'matched' : unconfirmed ? 'no match (unconfirmed)' : 'no matching stub';
   return (
     <div className={styles.ev}>
       <span
@@ -214,12 +228,12 @@ function Ev({ port, request }: { port: number; request: RecordedRequest }) {
       />
       <span className={styles.evTime}>{hhmm(request.timestamp)}</span>
       <span className={styles.evMsg}>
-        <span className={styles.sr}>{matched ? 'matched' : 'no matching stub'}: </span>
+        <span className={styles.sr}>{verdict}: </span>
         <Verb method={request.method} /> <code>{request.path}</code>
         {matched ? null : (
           <>
             {' '}
-            <Off>no matching stub</Off>
+            <Off>{verdict}</Off>
           </>
         )}
       </span>
@@ -244,6 +258,9 @@ export function Overview() {
   const imposters = useImposters(env);
 
   const list = useMemo(() => imposters.data ?? [], [imposters.data]);
+  /* What this instance keeps, so no tile announces that traffic is being dropped while a
+     --mock instance keeps all of it. */
+  const facts = useInstanceFacts(env);
   const ports = useMemo(() => list.map((imposter) => imposter.port), [list]);
   const traffic = useTraffic(env, ports);
 
@@ -268,16 +285,41 @@ export function Overview() {
     ? ago(Math.max(...traffic.requests.map((r) => r.timestamp)))
     : 'never';
 
-  /** The five newest things this panel did. The store is already newest-first. */
-  /** The five newest requests across every port, for the Activity preview card. */
+  /**
+   * The five newest requests across every port, for the Activity preview card.
+   *
+   * Each row carries whether the imposter it landed on has a predicate the panel cannot
+   * evaluate: a non-match computed over one of those is a guess, and the row has to say so
+   * rather than announce "no matching stub".
+   */
+  const unconfirmedPorts = useMemo(
+    () =>
+      new Set(
+        list
+          .filter((imposter) => imposter.stubs.some(hasUnevaluablePredicate))
+          .map((imposter) => imposter.port),
+      ),
+    [list],
+  );
+
   const recent = useMemo(() => {
-    const rows: { key: string; port: number; request: RecordedRequest }[] = [];
+    const rows: {
+      key: string;
+      port: number;
+      request: RecordedRequest;
+      unconfirmed: boolean;
+    }[] = [];
     for (const [port, entry] of traffic.byPort) {
       for (const request of entry.requests)
-        rows.push({ key: `${port}:${request.id}`, port, request });
+        rows.push({
+          key: `${port}:${request.id}`,
+          port,
+          request,
+          unconfirmed: unconfirmedPorts.has(port),
+        });
     }
     return rows.sort((a, b) => b.request.timestamp - a.request.timestamp).slice(0, 5);
-  }, [traffic.byPort]);
+  }, [traffic.byPort, unconfirmedPorts]);
 
   const loadingList = imposters.isPending;
   const listFailed = imposters.isError;
@@ -350,6 +392,8 @@ export function Overview() {
     </Pill>
   ) : traffic.requests.length ? (
     <span>last {lastSeen}</span>
+  ) : facts.recordsEverything ? (
+    <Pill dot>nothing captured yet</Pill>
   ) : recording === 0 && list.length > 0 ? (
     <Pill tone="warn" dot>
       recording is off
@@ -358,15 +402,28 @@ export function Overview() {
     <Pill dot>nothing captured yet</Pill>
   );
 
+  /* Any imposter carrying a predicate the panel cannot evaluate makes both verdicts
+     below guesses: an unevaluable predicate is scored as a non-match, so a workspace whose
+     stubs are answering perfectly can show unmatched > 0 and be told it needs a stub. */
+  const anyUnconfirmed = list.some((imposter) => imposter.stubs.some(hasUnevaluablePredicate));
+
   const unmatchedMeta = unknownTraffic ? (
     <span>still counting</span>
+  ) : traffic.failed > 0 ? (
+    <span>{plural(traffic.failed, 'log')} unreadable</span>
   ) : unmatched ? (
-    <Pill tone="err" dot>
-      needs a stub
-    </Pill>
+    anyUnconfirmed ? (
+      <Pill tone="warn" dot>
+        may need a stub
+      </Pill>
+    ) : (
+      <Pill tone="err" dot>
+        needs a stub
+      </Pill>
+    )
   ) : traffic.requests.length ? (
     <Pill tone="ok" dot>
-      every request matched
+      {anyUnconfirmed ? 'nothing left unmatched' : 'every request matched'}
     </Pill>
   ) : (
     <Pill dot>nothing captured yet</Pill>
@@ -460,11 +517,13 @@ export function Overview() {
     <>
       {traffic.probes}
 
-      <PageHead eyebrow={environment.label} title="Workspace" />
+      {/* "Overview" — the rail, the breadcrumb and the route segment all say so, and this
+          h1 was the only place calling the same screen something else. */}
+      <PageHead eyebrow={environment.label} title="Overview" />
 
       <Strip tone="info" icon={<Icon name="file" />} title="How a mock is put together">
         An <b>imposter</b> is one mock server on one port — point a service at that port and it
-        talks to this panel instead of the real service. Inside it, each <b>stub</b> says{' '}
+        talks to Mountebank instead of the real service. Inside it, each <b>stub</b> says{' '}
         <em>when</em> it applies and <em>what</em> to answer. Stubs are matched top to bottom, so
         the first one whose conditions fit wins and the rest never see the request.
       </Strip>
@@ -559,7 +618,10 @@ export function Overview() {
                       <th>Port</th>
                       <th>Protocol</th>
                       <th>Stubs</th>
-                      <th>Requests</th>
+                      {/* The captured log, not mountebank's own counter — the Imposters
+                          screen shows that one under the same word, and for an imposter
+                          that is not recording the two differ. */}
+                      <th title="How many requests this panel could read from the log">Captured</th>
                       <th>Recording</th>
                       <th aria-label="Row actions" />
                     </tr>
@@ -604,19 +666,25 @@ export function Overview() {
               <>
                 <div className={styles.feed}>
                   {recent.map((row) => (
-                    <Ev key={row.key} port={row.port} request={row.request} />
+                    <Ev
+                      key={row.key}
+                      port={row.port}
+                      request={row.request}
+                      unconfirmed={row.unconfirmed}
+                    />
                   ))}
                 </div>
-                <p className={styles.footnote}>
-                  Whether a stub matched is computed here by evaluating its predicates — Mountebank
-                  only reports it when run with <code>--debug</code>.
-                </p>
+                <p className={styles.footnote}>{matchSource(facts)}.</p>
               </>
             ) : (
               <div className={styles.feedEmpty}>
                 <p>
-                  Nothing captured yet. Send a request to one of these ports and it appears here and
-                  on the Activity screen.
+                  Nothing captured yet.{' '}
+                  {list.length === 0
+                    ? 'There are no imposters here yet, so there is nothing listening.'
+                    : facts.recordsEverything || recording > 0
+                      ? 'Send a request to one of these ports and it appears here and on the Activity screen.'
+                      : 'No imposter here is recording, so nothing sent to these ports will be kept — turn Record requests on for one of them first.'}
                 </p>
               </div>
             )}

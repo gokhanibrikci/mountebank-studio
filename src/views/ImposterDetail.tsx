@@ -25,8 +25,10 @@
  */
 
 import { useEffect, useId, useState } from 'react';
+import axios from 'axios';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import { type EnvId } from '../lib/environments';
 import { envOr } from '../store/useEnvironments';
 import { ago, hhmm, plural } from '../lib/format';
 import type { Imposter, RecordedRequest, Stub } from '../lib/mb/types';
@@ -38,6 +40,7 @@ import {
   useReorderStubs,
   useReplaceImposter,
 } from '../lib/queries';
+import { keptFor, matchSource, useInstanceFacts, whyMatchIsComputed } from '../lib/mb/instanceFacts';
 import { sigOf } from '../lib/summaries';
 import { useStudio } from '../store/useStudio';
 import {
@@ -57,7 +60,7 @@ import { ImposterJson } from './ImposterJson';
 import { ImposterSettings } from './ImposterSettings';
 import {
   RequestDrawer,
-  STATUS_SOURCE_NOTE,
+  statusSourceNote,
   deriveOutcome,
   statusLabel,
   statusPillTone,
@@ -98,6 +101,9 @@ export function ImposterDetail() {
   const location = useLocation();
   const [search, setSearch] = useSearchParams();
   const baseId = useId();
+  /* Read once for the whole screen: whether this instance keeps traffic regardless of an
+     imposter's own flag decides what the strips below may claim. */
+  const pageFacts = useInstanceFacts(env);
 
   const port = Number(params.port);
   const portOk = Number.isInteger(port) && port > 0;
@@ -224,14 +230,22 @@ export function ImposterDetail() {
             </Button>
           }
         >
-          Either this imposter is gone — a freed port answers 404 — or{' '}
-          <span className="mono">{environment.target}</span> could not be reached.
+          {/* The Failure line above has already named the cause, and in the commonest third
+              case — an instance that answered but refuses this page — both halves of the
+              old guess were false. The 404 hint is the one thing Failure cannot supply, so
+              it is shown only when the error actually was one. */}
+          {axios.isAxiosError(detail.error) && detail.error.response?.status === 404
+            ? 'A freed port answers 404, so this imposter is probably gone.'
+            : 'The stubs and captured requests for this imposter could not be read.'}
         </EmptyState>
       </>
     );
   }
 
   const { imposter, requests } = detail.data;
+  /* What this instance keeps, so the recording strip below cannot contradict a full
+     Activity tab. */
+  const kept = keptFor(pageFacts, imposter.recordRequests);
 
   /* --------------------------------- derived ------------------------------ */
 
@@ -388,15 +402,25 @@ export function ImposterDetail() {
               {host}:{imposter.port}
             </span>{' '}
             and it talks to the stubs below instead of the real service. They are matched top to
-            bottom, and the tabs above count what this imposter holds and what it has received.
+            bottom, and the tabs above count the stubs it holds and the requests it has captured —
+            which is not the same as what it has received, unless it is recording.
           </>
         )}
       </Strip>
 
-      {imposter.recordRequests ? null : (
+      {/*
+        Read off the instance, not off the imposter alone. A --mock instance keeps every
+        request whatever recordRequests says, and this strip used to appear next to an
+        Activity tab full of traffic, telling the reader to turn on a flag that would
+        change nothing.
+      */}
+      {imposter.recordRequests ? null : kept.kept ? (
+        <Strip tone="info" icon={<Icon name="reqs" />} title="Recording is on for the instance">
+          {kept.because}
+        </Strip>
+      ) : (
         <Strip tone="warn" icon={<Icon name="alert" />} title="Recording is off">
-          Nothing this imposter receives is being kept, so the Activity tab stays empty. Turn{' '}
-          <b>Record requests</b> on in the Settings tab to start capturing.
+          {kept.because} Turn <b>Record requests</b> on in the Settings tab to start capturing.
         </Strip>
       )}
 
@@ -426,6 +450,7 @@ export function ImposterDetail() {
       >
         {tab === 'stubs' ? (
           <StubList
+            env={env}
             stubs={imposter.stubs}
             hits={hits}
             busy={saving}
@@ -435,7 +460,12 @@ export function ImposterDetail() {
         ) : null}
 
         {tab === 'activity' ? (
-          <CapturedRequests imposter={imposter} requests={requests} onOpenRequest={openRequest} />
+          <CapturedRequests
+            env={env}
+            imposter={imposter}
+            requests={requests}
+            onOpenRequest={openRequest}
+          />
         ) : null}
 
         {tab === 'settings' ? (
@@ -539,30 +569,29 @@ export function ImposterDetail() {
 
 /* ═══════════════════════════════  requests tab  ══════════════════════════ */
 
-/** One note, in one place, about everything in this table that is inferred. */
-const COMPUTED_NOTE =
-  'Mountebank stores requests only — never the response it sent — and it reports the matching stub ' +
-  'only when started with --debug. The matched stub below is computed by evaluating predicates the ' +
-  'way mountebank does (first match wins); status and delay are then read from that stub.';
-
-const DERIVED_TITLE =
-  'Derived from the matched stub — mountebank does not store the response it sent';
-const MATCH_TITLE = 'Computed by evaluating predicates — mountebank does not report the match';
-
 interface CapturedRequestsProps {
+  env: EnvId;
   imposter: Imposter;
   requests: RecordedRequest[];
   onOpenRequest: (request: RecordedRequest) => void;
 }
 
 /** The captured request log for this one imposter, newest first. */
-function CapturedRequests({ imposter, requests, onOpenRequest }: CapturedRequestsProps) {
+function CapturedRequests({ env, imposter, requests, onOpenRequest }: CapturedRequestsProps) {
+  /* Every note in this table about what mountebank did or did not keep comes from here,
+     not from a constant. Both halves of the old note turned on --debug and only one of
+     them said so. */
+  const facts = useInstanceFacts(env);
+  const kept = keptFor(facts, imposter.recordRequests);
+
   if (!requests.length) {
     return (
       <EmptyState title="Nothing captured yet">
-        {imposter.recordRequests
+        {kept.kept
           ? `Send a request to port ${imposter.port} and it shows up here.`
-          : 'Turn on Record requests above to start capturing.'}
+          : /* "above" named no control: the only thing above is a strip that itself
+               points at the Settings tab. */
+            `${kept.because} Turn it on in the Settings tab to start capturing.`}
       </EmptyState>
     );
   }
@@ -574,7 +603,7 @@ function CapturedRequests({ imposter, requests, onOpenRequest }: CapturedRequest
     <>
       <p className={styles.computed}>
         <Icon name="alert" />
-        <span>{COMPUTED_NOTE}</span>
+        <span>{whyMatchIsComputed(facts)} Status and delay are then read from that stub.</span>
       </p>
 
       <Card flush>
@@ -583,9 +612,9 @@ function CapturedRequests({ imposter, requests, onOpenRequest }: CapturedRequest
             <tr>
               <th>Method</th>
               <th>Path</th>
-              <th title={DERIVED_TITLE}>Status</th>
-              <th title={DERIVED_TITLE}>Delay</th>
-              <th title={MATCH_TITLE}>Matched stub</th>
+              <th title={matchSource(facts)}>Status</th>
+              <th title={matchSource(facts)}>Delay</th>
+              <th title={matchSource(facts)}>Matched stub</th>
               <th>When</th>
             </tr>
           }
@@ -604,7 +633,7 @@ function CapturedRequests({ imposter, requests, onOpenRequest }: CapturedRequest
                     {request.path}
                   </span>
                 </td>
-                <td title={STATUS_SOURCE_NOTE[outcome.statusSource]}>
+                <td title={statusSourceNote(outcome, facts.reportsMatches)}>
                   <Pill tone={statusPillTone(outcome.status)}>
                     {outcome.status === null ? 'unknown' : outcome.status}
                   </Pill>
