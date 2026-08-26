@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.1 — 19 August 2026
+
+- **Settings no longer crashes when an environment is not a Mountebank.** `GET /config` was
+  believed on sight, so any address answering 200 with something else — the panel's own URL,
+  which serves index.html for every path; an imposter's port; a gateway — reached the screens
+  as a successful config and Settings died on `options.configfile` with a white page and
+  `Cannot read properties of undefined`. The body is checked at the boundary now, which is the
+  one place that can make the type true, and a body that is not a config becomes a failed read
+  with a sentence to act on: *that address answered, but not with a Mountebank configuration —
+  check that it points at an instance's admin port, not at an imposter, and not at this page.*
+- **The instance this host runs can be added back.** An environment removed once is not handed
+  back on every start, and that stays — but "never again, with no way back" was a dead end,
+  since the only route left was typing an address the host already knows. Settings now offers
+  it once, in the Environments section: *this host forwards to a Mountebank at /mb/local, and
+  it is not in your list — Add it.*
+
 ## 0.4.0 — 19 August 2026
 
 **The imposters you create are kept.** Mountebank holds them in memory unless it is told

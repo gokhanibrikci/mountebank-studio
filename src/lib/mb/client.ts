@@ -89,8 +89,38 @@ export function describeError(error: unknown): string {
 
 /* ────────────────────────────────  reads  ──────────────────────────────── */
 
-export const getConfig = async (env: EnvId): Promise<MbConfig> =>
-  (await http(env).get<MbConfig>('/config')).data;
+/**
+ * `GET /config`, checked before it is believed.
+ *
+ * `MbConfig` says `options` is there, and every screen reads it as if it is — Settings dies
+ * on `options.configfile` otherwise, with a white page and a stack trace. But a 200 is not a
+ * promise of a Mountebank: a URL pointing at this very page answers with index.html under the
+ * SPA fallback, an imposter's own port answers with whatever it was told to say, and a
+ * gateway answers with its own JSON. All of those used to reach the screens as a "successful"
+ * config.
+ *
+ * So the shape is verified here, at the boundary, which is the one place that can make the
+ * type true. A body that is not a config is a failed read with a sentence somebody can act
+ * on, and every screen already knows how to show one of those.
+ */
+export const getConfig = async (env: EnvId): Promise<MbConfig> => {
+  const { data } = await http(env).get<unknown>('/config');
+
+  const looksLikeConfig =
+    typeof data === 'object' &&
+    data !== null &&
+    typeof (data as { version?: unknown }).version === 'string' &&
+    typeof (data as { options?: unknown }).options === 'object' &&
+    (data as { options?: unknown }).options !== null;
+
+  if (!looksLikeConfig) {
+    throw new Error(
+      'That address answered, but not with a Mountebank configuration. Check that it points ' +
+        'at an instance\u2019s admin port \u2014 not at an imposter, and not at this page.',
+    );
+  }
+  return data as MbConfig;
+};
 
 /**
  * Neither list view is complete, and mountebank offers no third one:

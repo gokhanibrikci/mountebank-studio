@@ -18,11 +18,11 @@
  * instance or it says the request failed.
  */
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { isProxied, type EnvId, type MbEnvironment } from '../lib/environments';
+import { isProxied, normalise, seedFromHost, type EnvId, type MbEnvironment } from '../lib/environments';
 import { resolveTarget } from '../lib/mb/reach';
 import { DEMO_BUILD } from '../lib/demo/instance';
 import { plural } from '../lib/format';
@@ -139,6 +139,35 @@ export function Settings() {
      link lands on the same instance; the store is the fallback and the first
      entry the last resort. With nothing defined there is no current environment
      at all, and this screen becomes the place one is created. */
+  /**
+   * The environment this host publishes, when the browser has not got it.
+   *
+   * Read once per visit rather than watched: a page that keeps re-offering something is
+   * nagging, and this only has to be true when somebody comes looking at the list.
+   */
+  const [offer, setOffer] = useState<MbEnvironment | null>(null);
+
+  /* Asked once, when somebody opens this screen, and only when the host has something the
+     list does not: same id AND same address both count as "already got it". */
+  useEffect(() => {
+    let cancelled = false;
+    void seedFromHost().then((published) => {
+      if (cancelled) return;
+      const ids = new Set(list.map((e) => e.id));
+      const targets = new Set(list.map((e) => normalise(e.target)));
+      const missing = published.find(
+        (e) => !ids.has(e.id) && !targets.has(normalise(e.target)),
+      );
+      setOffer(missing ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+    /* The list is deliberately not a dependency: adding it makes this re-run on every
+       edit, and the answer only matters when the screen opens. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const environment: MbEnvironment | undefined =
     list.find((e) => e.id === params.env) ?? list.find((e) => e.id === storeEnv) ?? list[0];
   const env = environment?.id;
@@ -244,6 +273,32 @@ export function Settings() {
           )
         }
       >
+        {/*
+          What this host publishes but the browser does not have.
+
+          An environment removed once is not handed back on every start — that decision has
+          to stick — but "never again, and no way back" is a dead end: the only route was to
+          type an address the host already knows. So it is offered here, once, where the list
+          it belongs to lives.
+        */}
+        {offer === null ? null : (
+          <Strip tone="info" icon={<Icon name="globe" />} title="This host runs one of its own">
+            The page you are looking at forwards to a Mountebank at{' '}
+            <span className="mono">{offer.target}</span>, and it is not in your list.{' '}
+            <Button
+              size="sm"
+              icon={<Icon name="plus" />}
+              onClick={() => {
+                const created = add({ label: offer.label, target: offer.target });
+                setOffer(null);
+                toast(`${created.label} added`);
+              }}
+            >
+              Add it
+            </Button>
+          </Strip>
+        )}
+
         {list.length === 0 ? (
           <EmptyState
             title="No environments yet"
