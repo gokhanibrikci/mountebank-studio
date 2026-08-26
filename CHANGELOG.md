@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.4 — 26 August 2026
+
+- **An environment names the instance, not the road to it.** The host published its own
+  forwarding route, `/mb/local`, as the environment's address, so the list showed a path
+  nobody typed and nobody could evaluate — while the address the banner printed two lines
+  earlier, `http://127.0.0.1:2525`, appeared nowhere. It now publishes that address. Nothing
+  about the request changes: the panel looks it up in the forwarding manifest and still calls
+  it through this origin, so it stays same-origin and the instance still needs no `--origin`.
+  The route goes back to being this process's business.
+- **A row an older version stored as a route is rewritten to the address it resolves to**, so
+  one instance is not described two ways depending on when somebody first ran the command. A
+  row edited to point at a different instance is left alone — that is somebody's choice, and
+  only the spelling of the same instance moves.
+
 ## 0.4.3 — 26 August 2026
 
 - **The instance this command starts is simply listed, every start.** Two releases went into

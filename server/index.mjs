@@ -586,7 +586,18 @@ async function main() {
          * the sidebar repeats on every screen afterwards.
          */
         label: opts.mbUrl === null ? 'Local' : new URL(upstream).host,
-        target: `/mb/${ROUTE}`,
+        /*
+         * The instance's OWN address, not the route this server forwards it on.
+         *
+         * An environment answers "which Mountebank", and `/mb/local` answers "by which
+         * road" — a fact about this process that nobody typed and nobody should have to
+         * read. Published as the address the banner above already printed, it matches
+         * what somebody would reach for `curl` with, and the panel still routes it
+         * through this origin by itself: `resolveTarget` looks it up in the manifest and
+         * calls /mb/local, so the request stays same-origin and the instance keeps
+         * needing no --origin flag. The road remains, and stops being paperwork.
+         */
+        target: upstream,
       },
     ],
   };

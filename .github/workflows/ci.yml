@@ -84,8 +84,17 @@ jobs:
           echo "— the instance answers through this origin"
           curl -fsS -m 5 http://127.0.0.1:5399/mb/local/config | grep -q '"version"'
 
-          echo "— a first run is handed an environment"
-          curl -fsS -m 5 http://127.0.0.1:5399/mb/bootstrap.json | grep -q '"/mb/local"'
+          echo "— a first run is handed the instance's own address, not the route"
+          # An environment answers "which Mountebank". The route this server forwards it
+          # on is this process's business, and the panel resolves it without being told.
+          boot=$(curl -fsS -m 5 http://127.0.0.1:5399/mb/bootstrap.json)
+          echo "$boot" | grep -qE '"target": *"http://127\.0\.0\.1:2599"'
+          if echo "$boot" | grep -q '/mb/local'; then
+            echo "bootstrap.json still publishes a route: $boot"; exit 1
+          fi
+          # And that address is what the manifest maps the route to, so the two agree.
+          curl -fsS -m 5 http://127.0.0.1:5399/mb/targets.json \
+            | grep -qE '"local": *"http://127\.0\.0\.1:2599"'
 
           echo "— a write gets through the forward"
           code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 \

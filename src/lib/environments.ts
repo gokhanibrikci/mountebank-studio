@@ -222,8 +222,12 @@ export function adoptable(
      * sits unlisted — and the only way back was to type an address this process already
      * publishes. That is not a preference to remember, it is what this process is, so it
      * is listed every start. Everything else a host publishes still asks once.
+     *
+     * Asked of the RESOLVED address, so it holds however the instance is spelled: the
+     * host publishes `http://127.0.0.1:2525`, this origin forwards it, and the answer is
+     * the same one the panel gives when it decides how to send a request.
      */
-    if (isProxied(env.target)) return true;
+    if (isProxied(reach(env.target))) return true;
     return !seen.includes(env.id);
   });
 }

@@ -57,6 +57,10 @@ That starts a Mountebank, serves the panel, and opens on a working instance. Not
 to configure, and nothing to allow: the panel and the instance share one origin, so
 the CORS question below never comes up. Ctrl-C stops both.
 
+The panel lists that instance by its own address — `http://127.0.0.1:2525`, the one in
+the banner below, the one you would `curl`. The panel's own address is not it, and
+cannot be: a panel serves a page, an instance serves an admin API.
+
 ```
   Mountebank Studio        http://127.0.0.1:5273
   Started for you          http://127.0.0.1:2525 · mountebank 2.9.4
@@ -109,7 +113,8 @@ You can also name the instance up front, which is the better fit for a script:
 mountebank-studio --mb-url https://mountebank.example.com
 ```
 
-No instance is started; `/mb/local` forwards to that one.
+No instance is started; the panel lists that URL and reaches it through this origin, so
+it needs no `--origin` of its own.
 
 Add `--insecure` only if a certificate cannot be fixed. It turns off verification for that
 upstream, which means anything between you and it can read and change these requests; the

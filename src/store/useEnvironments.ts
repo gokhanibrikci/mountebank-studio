@@ -104,8 +104,26 @@ export const useEnvironments = create<EnvironmentsState>()(
       seed: (list, reach) => {
         if (list.length === 0) return false;
         const fresh = adoptable(get().list, list, get().offered, reach);
+        /*
+         * A row this host published before is kept in step with what it publishes now.
+         *
+         * Otherwise a browser that adopted `/mb/local` from an older version would keep
+         * showing that route for ever, while every new one shows the instance's address
+         * — one instance described two ways depending on when somebody first ran this.
+         * Only the spelling moves: if the row resolves to a DIFFERENT instance somebody
+         * edited it deliberately, and that is theirs to keep.
+         */
+        const same = reach ?? normalise;
+        const published = new Map(list.map((env) => [env.id, env]));
+        const kept = get().list.map((env) => {
+          const now = published.get(env.id);
+          if (now === undefined) return env;
+          if (same(env.target) !== same(now.target)) return env;
+          if (normalise(env.target) === normalise(now.target)) return env;
+          return { ...env, target: normalise(now.target) };
+        });
         set({
-          list: [...get().list, ...fresh],
+          list: [...kept, ...fresh],
           /* Every offered id is remembered, including one skipped for duplicating an
              environment already here: the question must not be asked twice either way. */
           offered: [...new Set([...get().offered, ...list.map((env) => env.id)])],

@@ -47,6 +47,16 @@ describe('adoptable', () => {
     expect(adoptable([staging], [local], ['local'])).toEqual([local]);
   });
 
+  it('is exempt however the instance is spelled, once an address can be resolved', () => {
+    /* The host publishes the instance's own address now; this origin forwards it. The
+       exemption is about which instance, so it has to survive that. */
+    const published: MbEnvironment = { id: 'local', label: 'Local', target: 'http://127.0.0.1:2525' };
+    const resolve = (t: string): string => (t === 'http://127.0.0.1:2525' ? '/mb/local' : t);
+    expect(adoptable([staging], [published], ['local'], resolve)).toEqual([published]);
+    /* With no manifest it is just a URL like any other, and the rule applies. */
+    expect(adoptable([staging], [published], ['local'])).toEqual([]);
+  });
+
   it('does not add it twice when the list has it under the address from the terminal', () => {
     /*
      * The banner prints `http://127.0.0.1:2525` and the host publishes `/mb/local`. One
