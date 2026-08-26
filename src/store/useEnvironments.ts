@@ -14,6 +14,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import {
+  isOwnAddress,
   normalise,
   adoptable,
   seedFromEnv,
@@ -51,6 +52,12 @@ interface EnvironmentsState {
    * removed is not handed straight back on the next start.
    */
   offered: EnvId[];
+  /**
+   * Drop every environment that names this page rather than a Mountebank, returning what
+   * went. Called once on start: the form refuses such an address now, but a browser that
+   * saved one before is left holding a row that cannot ever read anything.
+   */
+  dropOwnAddress: () => MbEnvironment[];
   add: (draft: EnvironmentDraft) => MbEnvironment;
   update: (id: EnvId, patch: Partial<EnvironmentDraft>) => void;
   remove: (id: EnvId) => void;
@@ -132,6 +139,23 @@ export const useEnvironments = create<EnvironmentsState>()(
       },
 
       remove: (id) => set({ list: get().list.filter((e) => e.id !== id) }),
+
+      dropOwnAddress: () => {
+        /*
+         * Removing somebody's data is not something this code does lightly, and this is
+         * the one case that earns it: the address is THIS PAGE. Not unreachable, not
+         * misconfigured — categorically not a Mountebank, because it is the panel asking
+         * the question. It answers every path with index.html, so it reads as alive and
+         * returns nothing, and before 0.4.1 it crashed Settings. There is nothing to
+         * recover by keeping it, and what it costs is a row in a list whose whole job is
+         * to say which instance. What went is returned, so the panel can say so.
+         */
+        const doomed = get().list.filter((env) => isOwnAddress(env.target));
+        if (doomed.length === 0) return [];
+        const gone = new Set(doomed.map((env) => env.id));
+        set({ list: get().list.filter((env) => !gone.has(env.id)) });
+        return doomed;
+      },
 
       markForwarded: (id) =>
         set({

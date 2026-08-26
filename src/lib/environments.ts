@@ -94,15 +94,26 @@ export interface FieldErrors {
  * An empty object means the draft is savable.
  */
 /**
- * Whether a URL is the page doing the asking — same origin, and nothing but the root.
+ * Whether an address is the page doing the asking — same origin, and nothing but the root.
  *
- * A path is left alone: a deployment where the panel and an instance share an origin is
- * perfectly ordinary, and `/mb/local` is exactly that.
+ * A Mountebank is never this. The panel serves a page; an instance serves an admin API,
+ * on its own port. An environment that names this page can only ever fail, and it fails
+ * in the most misleading way available: it answers, with index.html, for every path.
+ *
+ * A path is left alone (`/mb/local` is how forwarding is addressed), and so is an address
+ * under a path on this origin — a proxy putting a panel and an instance behind one
+ * hostname is ordinary. Only the bare origin is the mistake.
  */
-function isThisPage(url: URL): boolean {
+export function isOwnAddress(target: string): boolean {
   if (typeof window === 'undefined') return false;
-  const path = url.pathname.replace(/\/+$/, '');
-  return path === '' && url.origin === window.location.origin;
+  const trimmed = normalise(target);
+  if (trimmed === '' || isProxied(trimmed)) return false;
+  try {
+    const url = new URL(trimmed);
+    return url.pathname.replace(/\/+$/, '') === '' && url.origin === window.location.origin;
+  } catch {
+    return false;
+  }
 }
 
 export function validate(
@@ -135,7 +146,7 @@ export function validate(
       errors.target = 'That is not a URL. Include the scheme, e.g. https://mb.example.com';
     } else if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       errors.target = 'Only http and https can be reached from a browser.';
-    } else if (isThisPage(url)) {
+    } else if (isOwnAddress(target)) {
       /*
        * The panel's own address, typed instead of the instance's.
        *

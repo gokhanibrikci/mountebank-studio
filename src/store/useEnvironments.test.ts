@@ -22,6 +22,65 @@ const published: MbEnvironment = { id: 'local', label: 'Local', target: 'http://
 const rows = (): [string, string][] =>
   useEnvironments.getState().list.map((e) => [e.id, e.target]);
 
+describe('dropOwnAddress', () => {
+  /* No jsdom in this suite, so the page is stated outright. */
+  const asPage = (origin: string, run: () => void): void => {
+    const had = 'window' in globalThis;
+    Object.defineProperty(globalThis, 'window', { value: { location: { origin } }, configurable: true, writable: true });
+    try {
+      run();
+    } finally {
+      if (!had) delete (globalThis as { window?: unknown }).window;
+    }
+  };
+
+  beforeEach(() => {
+    useEnvironments.setState({ list: [], offered: [] });
+  });
+
+  it('drops the row that names this page and says which it was', () => {
+    asPage('http://127.0.0.1:5273', () => {
+      useEnvironments.setState({
+        list: [
+          { id: 'default-local-mb', label: 'Default Local MB', target: 'http://127.0.0.1:5273' },
+          { id: 'local', label: 'Local', target: 'http://127.0.0.1:2525' },
+        ],
+        offered: [],
+      });
+      const gone = useEnvironments.getState().dropOwnAddress();
+      expect(gone.map((e) => e.label)).toEqual(['Default Local MB']);
+      expect(rows()).toEqual([['local', 'http://127.0.0.1:2525']]);
+    });
+  });
+
+  it('ignores a trailing slash, which is the same address', () => {
+    asPage('http://127.0.0.1:5273', () => {
+      useEnvironments.setState({ list: [{ id: 'a', label: 'A', target: 'http://127.0.0.1:5273/' }], offered: [] });
+      expect(useEnvironments.getState().dropOwnAddress()).toHaveLength(1);
+      expect(rows()).toEqual([]);
+    });
+  });
+
+  it('keeps the instance, the path and an address under a path on this origin', () => {
+    asPage('http://127.0.0.1:5273', () => {
+      const keep: MbEnvironment[] = [
+        { id: 'local', label: 'Local', target: 'http://127.0.0.1:2525' },
+        { id: 'route', label: 'Route', target: '/mb/local' },
+        { id: 'proxied', label: 'Behind a proxy', target: 'http://127.0.0.1:5273/mb-admin' },
+        { id: 'stg', label: 'Staging', target: 'https://mb.example.com' },
+      ];
+      useEnvironments.setState({ list: keep, offered: [] });
+      expect(useEnvironments.getState().dropOwnAddress()).toEqual([]);
+      expect(useEnvironments.getState().list).toEqual(keep);
+    });
+  });
+
+  it('does nothing when there is no page to compare with', () => {
+    useEnvironments.setState({ list: [{ id: 'a', label: 'A', target: 'http://127.0.0.1:5273' }], offered: [] });
+    expect(useEnvironments.getState().dropOwnAddress()).toEqual([]);
+  });
+});
+
 describe('seed', () => {
   beforeEach(() => {
     useEnvironments.setState({ list: [], offered: [] });

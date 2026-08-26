@@ -77,6 +77,19 @@ if (DEMO_BUILD) {
   useStudio.getState().setGreeted(true);
 }
 
+/*
+ * An environment naming this page rather than an instance is dropped, and the drop is
+ * announced. It is the panel's own address in a list of Mountebanks: it answers every path
+ * with index.html, so it looks alive and reads nothing. Kept, it is a row that can only
+ * ever fail; gone quietly, it is data that vanished. So it goes, and it says so.
+ */
+const dropped = useEnvironments.getState().dropOwnAddress();
+for (const env of dropped) {
+  useStudio
+    .getState()
+    .toast(`Removed ${env.label} — ${env.target} is this page, not a Mountebank.`, 'warn');
+}
+
 /* resolveTarget, so an instance already in the list under the address somebody read off
    their terminal is not adopted a second time under the path this host publishes. */
 const adopted = useEnvironments.getState().seed(await seedFromHost(), resolveTarget);

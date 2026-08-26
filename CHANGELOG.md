@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.5 — 26 August 2026
+
+- **An environment that names this page is dropped on start, and the drop is announced.**
+  0.4.3 stopped one being created; a browser that had saved one before was left holding it.
+  It is the only row this code will remove by itself, and it earns it: the address is the
+  panel, so it is categorically not a Mountebank — it answers every path with `index.html`,
+  which reads as alive and returns nothing. Nothing is recoverable by keeping it. A path, an
+  address under a path on this origin, and every real instance are untouched.
+
 ## 0.4.4 — 26 August 2026
 
 - **An environment names the instance, not the road to it.** The host published its own
