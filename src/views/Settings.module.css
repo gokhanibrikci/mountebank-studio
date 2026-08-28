@@ -250,3 +250,12 @@
   line-height: 1.55;
   color: var(--tx-3);
 }
+
+/* ---------- moving the file the mocks are kept in ---------- */
+
+.storeActs {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}

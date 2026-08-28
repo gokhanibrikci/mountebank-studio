@@ -28,13 +28,20 @@
  */
 
 import { spawn } from 'node:child_process';
-import { createReadStream, existsSync, statSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import {
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from 'node:fs';
+import { readFile, rename, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import https from 'node:https';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { extname, join, normalize, resolve } from 'node:path';
+import { dirname, extname, isAbsolute, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
@@ -81,10 +88,13 @@ const HELP = `
     --port <n>         serve the panel here                      (default 5273)
     --mb-port <n>      start Mountebank here                     (default 2525)
     --mb-url <url>     use a Mountebank ALREADY running there, and start none
-    --datadir <path>   where the imposters you create are kept between runs
-                       (default ~/.mountebank-studio/local-<mb-port>)
-    --memory           do not keep them: the instance holds everything in memory and
-                       loses it when you stop it
+    --store <file>     the single JSON file everything is kept in, read at startup and
+                       rewritten on every change. Settings can move it, and the choice
+                       is remembered (default ~/.mountebank-studio/mocks.json)
+    --datadir <path>   ALSO keep mountebank's own directory tree here. Rarely wanted:
+                       the file above is the one this panel reads and writes
+    --memory           keep nothing: the instance holds everything and loses it when
+                       you stop it
     --allow-injection  let stubs run JavaScript. This is code execution: only do
                        it on an instance you would trust with a shell
     --insecure         stop verifying TLS certificates. It applies to EVERY https
@@ -100,7 +110,7 @@ const HELP = `
     npx mountebank-studio --port 8080 --mb-port 3000
     npx mountebank-studio --mb-url http://localhost:2525
     npx mountebank-studio --mb-url https://mountebank.example.com
-    npx mountebank-studio --datadir ./mocks
+    npx mountebank-studio --store ./mocks.json
     npx mountebank-studio --memory
 `;
 
@@ -111,7 +121,9 @@ function parseArgs(argv) {
     mbUrl: null,
     allowInjection: false,
     insecure: false,
-    /* null means "work it out from the port"; '' means the user asked for memory. */
+    /* null means "ask the settings file, then fall back to the default". */
+    store: null,
+    /* mountebank's own tree, off unless asked for: the file is the store. */
     datadir: null,
     memory: false,
     host: '127.0.0.1',
@@ -135,6 +147,7 @@ function parseArgs(argv) {
     else if (arg === '--mb-url') opts.mbUrl = next().replace(/\/+$/, '');
     else if (arg === '--allow-injection') opts.allowInjection = true;
     else if (arg === '--insecure') opts.insecure = true;
+    else if (arg === '--store') opts.store = next();
     else if (arg === '--datadir') opts.datadir = next();
     else if (arg === '--memory') opts.memory = true;
     else if (arg === '--host') opts.host = next();
@@ -158,16 +171,306 @@ function parseArgs(argv) {
  * mocks by hand, losing them on Ctrl-C is the wrong default.
  *
  * The path is under the user's home rather than the working directory, because "where I ran
- * it from" is not something anyone remembers, and it is keyed by the mountebank port, since
- * that is what identifies the instance: `--mb-port 3000` is a different instance and gets a
- * different store. `--datadir` puts it anywhere — a project directory, if these mocks belong
- * to a repository — and `--memory` opts out for a throwaway session.
+ * it from" is not something anyone remembers. `--store` puts it anywhere — a project
+ * directory, if these mocks belong to a repository — the panel can move it in Settings, and
+ * `--memory` opts out for a throwaway session.
  */
-function dataDirFor(opts) {
+async function storePathFor(opts) {
   if (opts.memory) return null;
-  if (opts.datadir !== null) return opts.datadir;
-  return join(homedir(), '.mountebank-studio', `local-${opts.mbPort}`);
+  if (opts.store !== null) return resolve(process.cwd(), opts.store);
+  const remembered = (await readSettings()).store;
+  if (typeof remembered === 'string' && remembered.trim() !== '') {
+    return resolve(process.cwd(), remembered);
+  }
+  return DEFAULT_STORE;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   One file
+   ══════════════════════════════════════════════════════════════════════════
+
+   Everything an instance holds — imposters, their stubs, responses and settings —
+   kept as a single JSON document rather than mountebank's own directory tree.
+
+   The tree works, and it is what --datadir does: a folder per imposter, a folder per
+   stub, one file per response. Nothing about it is wrong except that it cannot be
+   opened, read, diffed, committed or sent to somebody. What people want to keep is
+   one file.
+
+   So this server owns the persistence instead:
+
+     • at startup, mountebank is handed the file with --configfile, and loads it;
+     • at runtime it holds everything in memory — there is no --datadir, because two
+       stores for one truth is how they come to disagree;
+     • after any request through this server that CHANGES the instance, the whole set
+       is read back with ?replayable=true and written out again.
+
+   --noParse goes with --configfile, always. Without it mountebank runs the file
+   through EJS on load, so a recorded response body containing `<%` — a JSP fragment,
+   an ASP page, anything quoting a template — is executed rather than served back.
+   That would corrupt the very mocks this is meant to preserve.
+
+   The write is atomic: a temporary file in the same directory, then rename. A crash
+   halfway through leaves the previous version, not half of the new one.
+*/
+
+/** Where the panel remembers the path between runs, so it is a setting and not a flag. */
+const SETTINGS_FILE = join(homedir(), '.mountebank-studio', 'settings.json');
+
+/** The default, when nobody has ever chosen one. */
+const DEFAULT_STORE = join(homedir(), '.mountebank-studio', 'mocks.json');
+
+/** What this run is keeping, and where. Mutable: the panel can move it. */
+const store = {
+  /** Absolute path of the single file, or null when --memory was asked for. */
+  path: null,
+  /** When it was last written, as epoch ms, or null if not yet this run. */
+  savedAt: null,
+  /** The last write that failed, so the panel can say so rather than look fine. */
+  error: null,
+  /** Set while a write is in flight, so overlapping changes coalesce. */
+  writing: false,
+  /** Another change arrived mid-write; write once more when this one lands. */
+  again: false,
+};
+
+async function readSettings() {
+  try {
+    const body = JSON.parse(await readFile(SETTINGS_FILE, 'utf8'));
+    return typeof body === 'object' && body !== null ? body : {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeSettings(patch) {
+  const current = await readSettings();
+  mkdirSync(dirname(SETTINGS_FILE), { recursive: true });
+  await writeFile(SETTINGS_FILE, `${JSON.stringify({ ...current, ...patch }, null, 2)}\n`, 'utf8');
+}
+
+/**
+ * A path this server is willing to write to.
+ *
+ * The panel can set this, and the panel is a web page — so the answer to "which file"
+ * has to be checked here rather than trusted. Relative paths resolve against the
+ * directory the command was run from, which is what somebody typing `./mocks.json`
+ * means. Everything else is refused with a reason.
+ */
+function checkStorePath(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') return { error: 'Give a path to a file.' };
+  const path = resolve(process.cwd(), raw.trim().replace(/^~(?=\/|$)/, homedir()));
+  if (!isAbsolute(path)) return { error: 'That is not a path.' };
+  if (existsSync(path)) {
+    let stat;
+    try {
+      stat = statSync(path);
+    } catch (error) {
+      return { error: `That path cannot be read: ${error.message}` };
+    }
+    if (stat.isDirectory()) return { error: 'That is a directory. Name the file itself.' };
+    /* Refusing to clobber somebody's unrelated file on a typo. A file this server can
+       recognise as its own — valid JSON with an `imposters` array — is fair game. */
+    try {
+      const body = JSON.parse(readFileSync(path, 'utf8'));
+      if (!Array.isArray(body?.imposters)) {
+        return {
+          error: 'That file exists and is not a mountebank configuration. Pick another name.',
+        };
+      }
+    } catch {
+      return { error: 'That file exists and is not JSON. Pick another name.' };
+    }
+  }
+  return { path };
+}
+
+/** Everything the instance holds, in the shape --configfile reads back. */
+async function snapshot(upstream) {
+  const url = `${upstream}/imposters?replayable=true`;
+  const response = await fetch(url, { headers: { accept: 'application/json' } });
+  if (!response.ok) throw new Error(`the instance answered ${response.status}`);
+  const body = await response.json();
+  if (!Array.isArray(body?.imposters)) throw new Error('the instance did not return imposters');
+  return { imposters: body.imposters };
+}
+
+/**
+ * Write the file, once, coalescing anything that arrives while it is happening.
+ *
+ * Never throws at the caller: a failed save must not turn into a failed request the
+ * user made. It is recorded instead, and the panel reports it.
+ */
+async function saveStore(upstream) {
+  if (store.path === null) return;
+  if (store.writing) {
+    store.again = true;
+    return;
+  }
+  store.writing = true;
+  try {
+    const document = await snapshot(upstream);
+    mkdirSync(dirname(store.path), { recursive: true });
+    const temporary = `${store.path}.${process.pid}.tmp`;
+    await writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
+    await rename(temporary, store.path);
+    store.savedAt = Date.now();
+    store.error = null;
+  } catch (error) {
+    store.error = error.message;
+    console.error(`  ! could not write ${store.path}: ${error.message}`);
+  } finally {
+    store.writing = false;
+    if (store.again) {
+      store.again = false;
+      await saveStore(upstream);
+    }
+  }
+}
+
+/**
+ * Carry a previous version's imposters into the file, once.
+ *
+ * Up to 0.4.7 this server kept them in mountebank's own directory tree under
+ * ~/.mountebank-studio/local-<port>. Somebody updating should not have to notice that the
+ * storage changed, and least of all by finding their mocks gone. So on the first run where
+ * the file does not exist and that tree does, a throwaway instance is started on a free
+ * port to read the tree, and what it holds is written to the file.
+ *
+ * The tree is left where it is. Deleting somebody's data to tidy up after a migration is
+ * not this program's decision.
+ */
+async function migrateFromDatadir(opts) {
+  if (existsSync(store.path)) return;
+  const legacy = join(homedir(), '.mountebank-studio', `local-${opts.mbPort}`);
+  if (!existsSync(legacy)) return;
+  /* An empty tree is nothing to carry. */
+  try {
+    if (readdirSync(legacy).length === 0) return;
+  } catch {
+    return;
+  }
+
+  const bin = mountebankBin();
+  if (bin === null) return;
+  const port = opts.mbPort + 10000 > 65535 ? opts.mbPort - 1 : opts.mbPort + 10000;
+  const child = spawn(process.execPath, [bin, '--port', String(port), '--localOnly', '--nologfile', '--datadir', legacy], {
+    stdio: 'ignore',
+  });
+  try {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      await new Promise((done) => setTimeout(done, 250));
+      try {
+        const document = await snapshot(`http://127.0.0.1:${port}`);
+        if (document.imposters.length === 0) return;
+        mkdirSync(dirname(store.path), { recursive: true });
+        await writeFile(store.path, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
+        console.log(
+          `  · carried ${document.imposters.length} imposter${document.imposters.length === 1 ? '' : 's'} from ${legacy} into ${store.path}`,
+        );
+        return;
+      } catch {
+        /* not up yet, or nothing to read */
+      }
+    }
+  } finally {
+    child.kill();
+  }
+}
+
+/** What the panel is told about the file: where, how big, when, and what went wrong. */
+function describeStore(opts) {
+  if (opts.mbUrl !== null) {
+    /* Somebody else's instance. Its persistence is its own business, and writing their
+       imposters into a file here would be this panel inventing a policy for it. */
+    return { kept: false, reason: 'this panel was pointed at an instance it did not start' };
+  }
+  if (store.path === null) {
+    return { kept: false, reason: 'started with --memory, so nothing is kept' };
+  }
+  let bytes = null;
+  try {
+    bytes = statSync(store.path).size;
+  } catch {
+    bytes = null;
+  }
+  return {
+    kept: true,
+    path: store.path,
+    exists: bytes !== null,
+    bytes,
+    savedAt: store.savedAt,
+    error: store.error,
+    /* Where a relative path would land, so the panel can say so before it is typed. */
+    cwd: process.cwd(),
+  };
+}
+
+/**
+ * `PUT /mb/store` — "keep it here from now on."
+ *
+ * Loopback and same-origin only, like every other write this server accepts from the
+ * page: it names a file on the machine, and a page from anywhere else has no business
+ * choosing one. The current mocks are written to the new path BEFORE it takes effect, so
+ * moving cannot lose them, and the choice is remembered for the next run.
+ */
+async function moveStore(req, res, opts, origin, upstream) {
+  if (!mayRegister(opts)) {
+    sendJson(res, 403, {
+      errors: [
+        {
+          code: 'not allowed',
+          message: `This panel is bound to ${opts.host}, not loopback. Choosing a file on this machine from a page served to the network is not something this server will do.`,
+        },
+      ],
+    });
+    return;
+  }
+  const from = req.headers.origin;
+  if (from !== undefined && from !== origin) {
+    sendJson(res, 403, { errors: [{ code: 'not allowed', message: `${from} is not this panel.` }] });
+    return;
+  }
+  if (opts.mbUrl !== null || store.path === null) {
+    sendJson(res, 409, {
+      errors: [{ code: 'not kept', message: describeStore(opts).reason }],
+    });
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJson(req);
+  } catch (error) {
+    sendJson(res, 400, { errors: [{ code: 'bad request', message: error.message }] });
+    return;
+  }
+
+  const checked = checkStorePath(body?.path);
+  if (checked.error !== undefined) {
+    sendJson(res, 400, { errors: [{ code: 'bad path', message: checked.error }] });
+    return;
+  }
+
+  const previous = store.path;
+  store.path = checked.path;
+  await saveStore(upstream);
+  if (store.error !== null) {
+    /* The new path could not be written, so it does not become the one in force. */
+    const failure = store.error;
+    store.path = previous;
+    store.error = null;
+    sendJson(res, 400, { errors: [{ code: 'bad path', message: failure }] });
+    return;
+  }
+
+  await writeSettings({ store: checked.path });
+  console.log(`  · imposters now kept in ${checked.path}`);
+  sendJson(res, 200, describeStore(opts));
+}
+
+/** Which requests change the instance, and therefore call for a write. */
+const CHANGES = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 
 /* ─────────────────────────────  the mountebank  ─────────────────────────── */
 
@@ -306,9 +609,18 @@ function startMountebank(opts) {
   const args = [bin, '--port', String(opts.mbPort), '--localOnly', '--nologfile'];
   if (opts.allowInjection) args.push('--allowInjection');
 
-  /* Mountebank creates the directory, nested parents included. */
-  const datadir = dataDirFor(opts);
-  if (datadir !== null) args.push('--datadir', datadir);
+  /*
+   * The file, when there is one to read. Mountebank refuses to start if --configfile
+   * names something that does not exist, so a first run simply starts empty and the
+   * file appears with the first imposter.
+   *
+   * --noParse always goes with it: without it the file is run through EJS on load, and
+   * a recorded body containing `<%` would be executed instead of served.
+   */
+  if (store.path !== null && existsSync(store.path)) {
+    args.push('--configfile', store.path, '--noParse');
+  }
+  if (opts.datadir !== null) args.push('--datadir', opts.datadir);
 
   const child = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
   pipeChild(child);
@@ -576,6 +888,16 @@ async function main() {
   if (opts.insecure) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
   const upstream = opts.mbUrl ?? `http://127.0.0.1:${opts.mbPort}`;
+
+  /*
+   * Where everything is kept. Resolved before the instance starts, because the file is
+   * what the instance is started FROM.
+   */
+  if (opts.mbUrl === null) {
+    store.path = await storePathFor(opts);
+    if (store.path !== null) await migrateFromDatadir(opts);
+  }
+
   const child = opts.mbUrl === null ? startMountebank(opts) : null;
 
   const bootstrap = {
@@ -647,11 +969,31 @@ async function main() {
       return;
     }
 
+    /* Where everything is kept, and — from the panel — where it should be kept. */
+    if (path === '/mb/store' && req.method === 'GET') {
+      sendJson(res, 200, describeStore(opts));
+      return;
+    }
+    if (path === '/mb/store' && req.method === 'PUT') {
+      void moveStore(req, res, opts, origin, upstream);
+      return;
+    }
+
     /* Any registered route, longest name first so one name cannot shadow another. */
     if (path.startsWith('/mb/')) {
       const names = [...forwards.keys()].sort((a, b) => b.length - a.length);
       const hit = names.find((name) => path === `/mb/${name}` || path.startsWith(`/mb/${name}/`));
       if (hit !== undefined) {
+        /*
+         * A change to the instance this server owns is a change to the file. Written
+         * after the reply has been handed back, so a slow disk never becomes a slow
+         * request, and coalesced inside saveStore so a burst of edits is one write.
+         */
+        if (hit === ROUTE && store.path !== null && CHANGES.has(req.method)) {
+          res.on('finish', () => {
+            if (res.statusCode < 400) void saveStore(upstream);
+          });
+        }
         proxy(req, res, hit, forwards.get(hit), opts.insecure);
         return;
       }
@@ -690,9 +1032,9 @@ async function main() {
          */
         opts.mbUrl !== null
           ? ''
-          : dataDirFor(opts) === null
+          : store.path === null
             ? `  ${label('Not kept')}--memory: imposters live in this process and go when it stops`
-            : `  ${label('Imposters kept in')}${dataDirFor(opts)}`,
+            : `  ${label('Imposters kept in')}${store.path}`,
         '',
         opts.allowInjection
           ? '  Injection is ON. Stubs on this instance can run JavaScript.\n'
@@ -711,10 +1053,29 @@ async function main() {
     );
   });
 
+  /*
+   * One last write on the way out.
+   *
+   * Every change is already written as it happens, so this is a belt: it catches a change
+   * made in the last few milliseconds, and anything done directly to the instance's own
+   * port rather than through this server. Bounded, because a shutdown that hangs on a
+   * disk is worse than a save that was probably redundant.
+   */
   const stop = () => {
     server.close();
-    child?.kill();
-    process.exit(0);
+    const done = () => {
+      child?.kill();
+      process.exit(0);
+    };
+    if (store.path === null || opts.mbUrl !== null) {
+      done();
+      return;
+    }
+    const bail = setTimeout(done, 2000);
+    void saveStore(upstream).finally(() => {
+      clearTimeout(bail);
+      done();
+    });
   };
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);

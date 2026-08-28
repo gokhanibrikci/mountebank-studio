@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.5.0 — 28 August 2026
+
+**Everything the local instance holds is one JSON file, and the panel can move it.**
+
+Mountebank keeps imposters as a directory tree: a folder per imposter, a folder per stub,
+a file per response. Nothing about that is wrong except that it cannot be opened, read,
+diffed, committed or handed to somebody — and what people want to keep is one file.
+
+So this server owns the persistence now. At startup mountebank is handed the file with
+`--configfile` and loads it; at runtime it holds everything in memory, because two stores
+for one truth is how they come to disagree; and after any change through this server the
+whole set is read back with `?replayable=true` and written out again. Writes are atomic —
+a temporary file beside it, then a rename — so a crash mid-write leaves the previous
+version rather than half of the new one, and a burst of edits coalesces into one write.
+
+`--noParse` always goes with `--configfile`. Without it mountebank runs the file through
+EJS on load, so a recorded body containing `<%` is executed instead of served — which
+would corrupt exactly the mocks this is meant to preserve.
+
+- **The path is a setting, not a flag.** Settings → *Where these mocks are kept* shows the
+  file, its size and when it was last written, and can move it: the current mocks are
+  written to the new path before it takes effect, so moving cannot lose them, and the
+  choice is remembered for the next run. `--store <file>` does the same from the command
+  line. The endpoint that accepts it is loopback-and-same-origin only, like every other
+  write this server takes from the page, and refuses a directory or a file that is not one
+  of ours rather than clobbering it.
+- **A tree left by an earlier version is carried in**, once, on the first run where the
+  file does not exist. It is not deleted — that is not this program's decision.
+- **`--datadir` is now an extra, not the store.** Pass it if you want mountebank's own tree
+  alongside the file; nothing reads it back.
+
 ## 0.4.7 — 26 August 2026
 
 Every user-facing sentence in the panel, the README, COVERAGE, NOTICE and the CLI's own

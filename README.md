@@ -150,18 +150,32 @@ install is not part of this recipe — use the plain `mountebank-studio` command
 Installing it as a *runtime* dependency does nothing useful either way: this is a
 program to run, not a library to import.
 
-### What survives a restart
+### One file, and it survives a restart
 
-The imposters you create are **kept**. Mountebank holds them in memory unless it is told
-otherwise, so the instance started for you is given a directory and the banner says which:
+Everything the instance holds — imposters, stubs, responses, settings — is **one JSON
+file**. The banner says which:
 
 ```
-  Imposters kept in        ~/.mountebank-studio/local-2525
+  Imposters kept in        ~/.mountebank-studio/mocks.json
 ```
 
-Close the terminal, start it again, and they are there. `--datadir ./mocks` puts them
-somewhere else — a project directory, if these mocks belong to a repository — and
-`--memory` opts out for a throwaway session, which the banner then says instead.
+The file is read at startup and rewritten whenever anything changes, so closing the
+terminal loses nothing. It is also just a file: open it, diff it, commit it next to the
+tests it feeds, send it to somebody. It is the same shape `--configfile` reads and the same
+shape **Settings → Full configuration** shows, so what comes out goes back in.
+
+Move it with `--store ./mocks.json`, or in the panel under **Settings → Where these mocks
+are kept** — the current mocks are written to the new path before it takes effect, and the
+choice is remembered for the next run. `--memory` opts out for a throwaway session, which
+the banner then says instead.
+
+Mountebank's own directory tree (`--datadir`) is no longer used for this, and a tree left
+by an earlier version is carried into the file on the first run rather than abandoned. It is
+not deleted; that is your call.
+
+> The file is loaded with `--noParse`. Without it Mountebank runs a config file through EJS,
+> so a recorded body containing `<%` — a JSP fragment, an ASP page, anything quoting a
+> template — would be executed on reload instead of served back.
 
 Nothing is kept for an instance you point at with `--mb-url`: that one is yours, and how it
 persists is its own business.

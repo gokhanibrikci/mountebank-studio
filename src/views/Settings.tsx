@@ -35,6 +35,7 @@ import { useStudio } from '../store/useStudio';
 import { Button, CodeEditor, EmptyState, Icon, Modal, PageHead, Pill, Section, Strip } from '../ui';
 import { EnvironmentForm } from './EnvironmentForm';
 import { Failure } from './Failure';
+import { StoreSection } from './StoreSection';
 import styles from './Settings.module.css';
 
 /* ─────────────────────────────  small formatters  ──────────────────────── */
@@ -410,6 +411,9 @@ function Instance({ environment }: { environment: MbEnvironment }) {
   /* The route the panel actually takes, which may be a path this host forwards
      even though the record holds the instance's own URL. */
   const route = resolveTarget(environment.target);
+  /* The instance this command started is the one served at /mb/local, whatever address
+     the environment happens to spell it with. */
+  const isOwnInstance = route === '/mb/local';
   const forwardedVia = isProxied(route) ? route : null;
   const env = environment.id;
   const toast = useStudio((s) => s.toast);
@@ -633,6 +637,10 @@ function Instance({ environment }: { environment: MbEnvironment }) {
           </dl>
         )}
       </Section>
+
+      {/* Where the mocks live, for the instance this command started. Absent for any
+          other, since its persistence is not this host's to describe. */}
+      {isOwnInstance ? <StoreSection /> : null}
 
       {/* ──────────────────────────  actions, one per row  ──────────────────── */}
       <Section title="Maintenance" icon={<Icon name="trash" />}>
