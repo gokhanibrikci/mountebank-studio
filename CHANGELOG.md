@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — 28 August 2026
+
+- **Injection, once decided, stays decided — for the machine.** Turning it on, with
+  `--allow-injection` or in Settings, is written to `~/.mountebank-studio/settings.json` and
+  every later start reads it, including an instance on another port. `--no-injection` turns
+  it back off everywhere. What ships is still off: a panel installed from npm should not
+  arrive able to run whatever JavaScript a stub carries. But that is about the first run, and
+  being asked again every morning is a nag rather than a safeguard.
+
 ## 0.6.4 — 28 August 2026
 
 - **The check that 0.6.3 added was a race, and it lost on a real machine.** It decided a

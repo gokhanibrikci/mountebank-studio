@@ -283,9 +283,26 @@ jobs:
           done
           [ "$(curl -fsS -m 5 http://127.0.0.1:6396/x)" = "ran" ] \
             || { echo "injection was not remembered"; cat remembered.log | tail -20; exit 1; }
+          echo "— and the decision is remembered for the machine, not just this instance"
+          # The nag this answers: being asked again on every new instance. Turning it on
+          # writes the machine-wide default as well as the per-instance value.
+          grep -q '"default": *true' "$HOME/.mountebank-studio/settings.json" \
+            || { echo "the machine-wide default was not written"; cat "$HOME/.mountebank-studio/settings.json"; exit 1; }
+          node server/index.mjs --port 5396 --mb-port 2596 > another.log 2>&1 &
+          for i in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:5396/mb/local/config > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS -m 5 http://127.0.0.1:5396/mb/local/config \
+            | grep -qE '"allowInjection": *true' \
+            || { echo "a second instance did not inherit it"; exit 1; }
+          pkill -f 'server/index.mjs --port 5396' 2>/dev/null || true
+
           curl -fsS -m 60 -X POST http://127.0.0.1:5399/mb/instance \
             -H 'content-type: application/json' -H 'Origin: http://127.0.0.1:5399' \
             -d '{"allowInjection":false}' -o /dev/null
+          grep -q '"default": *false' "$HOME/.mountebank-studio/settings.json" \
+            || { echo "turning it off did not clear the default"; exit 1; }
           curl -fsS -m 5 -X DELETE http://127.0.0.1:5399/mb/local/imposters/6396 -o /dev/null
 
           echo "— the instance this server starts writes no log file where it was run"

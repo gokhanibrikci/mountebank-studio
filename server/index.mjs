@@ -95,8 +95,10 @@ const HELP = `
                        the file above is the one this panel reads and writes
     --memory           keep nothing: the instance holds everything and loses it when
                        you stop it
-    --allow-injection  let stubs run JavaScript. This is code execution: only do
-                       it on an instance you would trust with a shell
+    --allow-injection  let stubs run JavaScript, and keep it on for this machine from
+                       now on. This is code execution: only do it on a machine you
+                       would trust with a shell. Settings can turn it on too
+    --no-injection     the opposite, and also remembered
     --insecure         stop verifying TLS certificates. It applies to EVERY https
                        connection this process makes — the instance you name and any
                        other it is later asked to forward to — not just to --mb-url
@@ -119,6 +121,8 @@ function parseArgs(argv) {
     port: 5273,
     mbPort: 2525,
     mbUrl: null,
+    /* null means "whatever this machine last decided"; true/false is this run saying so. */
+    injection: null,
     allowInjection: false,
     insecure: false,
     /* null means "ask the settings file, then fall back to the default". */
@@ -145,7 +149,8 @@ function parseArgs(argv) {
     else if (arg === '--port') opts.port = Number(next());
     else if (arg === '--mb-port') opts.mbPort = Number(next());
     else if (arg === '--mb-url') opts.mbUrl = next().replace(/\/+$/, '');
-    else if (arg === '--allow-injection') opts.allowInjection = true;
+    else if (arg === '--allow-injection') opts.injection = true;
+    else if (arg === '--no-injection') opts.injection = false;
     else if (arg === '--insecure') opts.insecure = true;
     else if (arg === '--store') opts.store = next();
     else if (arg === '--datadir') opts.datadir = next();
@@ -261,11 +266,16 @@ async function readSettings() {
   }
 }
 
-/** Remember something about one instance, leaving the others alone. */
-async function remember(section, mbPort, value) {
+/**
+ * Remember something under one key, leaving the rest of that section alone.
+ *
+ * The key is an instance's port, or the literal `default` for a choice that applies to
+ * every instance on this machine.
+ */
+async function remember(section, key, value) {
   const current = await readSettings();
   const group = typeof current[section] === 'object' && current[section] !== null ? current[section] : {};
-  const next = { ...current, [section]: { ...group, [String(mbPort)]: value } };
+  const next = { ...current, [section]: { ...group, [String(key)]: value } };
   mkdirSync(dirname(SETTINGS_FILE), { recursive: true });
   await writeFile(SETTINGS_FILE, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
 }
@@ -273,18 +283,43 @@ async function remember(section, mbPort, value) {
 const rememberStore = (mbPort, path) => remember('stores', mbPort, path);
 
 /**
- * Whether this instance was last told to accept injected JavaScript.
+ * Remember what somebody decided about injected JavaScript.
  *
- * A setting the panel changes has to survive the restart, or it is not a setting. Without
- * this, turning injection on in Settings and then closing the terminal left a store file
- * full of injected responses and an instance started without the flag — which mountebank
- * refuses to load, so the next `mountebank-studio` did not come up at all.
+ * Twice: for this instance, and for this machine. A setting the panel changes has to
+ * survive the restart or it is not a setting — without that, turning it on and closing the
+ * terminal left a store full of injected responses and an instance started without the
+ * flag, which mountebank refuses to load, so the next start did not come up at all.
+ *
+ * And the machine-wide half is the answer to "why am I being asked again": somebody who has
+ * said yes once, here, has said it. A later instance on another port inherits it rather
+ * than starting the conversation over. Turning it off writes false to both, so off is off.
  */
-const rememberInjection = (mbPort, allow) => remember('injection', mbPort, allow);
+async function rememberInjection(mbPort, allow) {
+  await remember('injection', mbPort, allow);
+  await remember('injection', 'default', allow);
+}
 
+/**
+ * Whether this instance should accept injected JavaScript.
+ *
+ * Three answers, most specific first:
+ *
+ *   1. this run said so — `--allow-injection` or `--no-injection`;
+ *   2. this instance was told so before, from Settings;
+ *   3. this MACHINE has it on by default, which is what `--allow-injection` writes.
+ *
+ * The shipped default is still off, and that is deliberate: an instance accepting injection
+ * runs whatever JavaScript a stub carries, with a real `require`, as whoever started it, and
+ * a panel installed from npm should not arrive that way. But it is off for the FIRST run
+ * only — one flag or one press is meant to settle it for good, on the machine of somebody
+ * who has decided. Asking again every morning is not security, it is a nag.
+ */
 async function injectionFor(opts) {
-  if (opts.allowInjection) return true;
-  return (await readSettings()).injection?.[String(opts.mbPort)] === true;
+  if (opts.injection !== null) return opts.injection;
+  const settings = await readSettings();
+  const perInstance = settings.injection?.[String(opts.mbPort)];
+  if (typeof perInstance === 'boolean') return perInstance;
+  return settings.injection?.default === true;
 }
 
 /**
@@ -1214,6 +1249,9 @@ async function main() {
     if (store.path !== null) await migrateFromDatadir(opts);
     /* A setting the panel changed has to survive the restart, or it is not a setting. */
     opts.allowInjection = await injectionFor(opts);
+    /* A flag given on the command line settles it for the machine, not just for this run:
+       "I had to type it again" is the complaint this answers. */
+    if (opts.injection !== null) await remember('injection', 'default', opts.injection);
   }
 
   const child = opts.mbUrl === null ? startMountebank(opts) : null;

@@ -191,8 +191,8 @@ export function LocalSettings({ injectionAllowed, onInstanceChanged }: LocalSett
             <b>Injected JavaScript</b>
             <span>
               {injectionAllowed
-                ? 'Stubs on this instance can run JavaScript — inject responses, and the decorate and shellTransform steps. That is code execution on this machine, as you.'
-                : 'An inject response is refused while this is off, and Mountebank cannot be told otherwise while it runs. Turning it on restarts the instance; the mocks are written to their file first and read back after.'}
+                ? 'Stubs on this instance can run JavaScript — inject responses, and the decorate and shellTransform steps. That is code execution on this machine, as you. It stays on until you turn it off, here or with --no-injection.'
+                : 'An inject response is refused while this is off, and Mountebank cannot be told otherwise while it runs. Turning it on restarts the instance — the mocks are written to their file first and read back after — and keeps it on for this machine, so you are not asked again.'}
             </span>
             <span className={styles.settingValue}>
               <code>{injectionAllowed ? '--allowInjection' : 'off'}</code>

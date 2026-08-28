@@ -192,9 +192,17 @@ where is spelled out under [Adding an environment](#adding-an-environment).
 An `inject` response is JavaScript that Mountebank runs in its own process, so it is off
 unless asked for. Start with `--allow-injection`, or turn it on in **Settings → Instance
 settings → Injected JavaScript**: the mocks are written to their file, the instance restarts
-with the flag, and they come back. The choice is remembered, so the next plain
-`mountebank-studio` starts the same way — it has to be, since Mountebank refuses to load a
-file containing an injected response without the flag.
+with the flag, and they come back.
+
+**The choice sticks, for the machine.** Turning it on — with the flag or in Settings —
+writes it to `~/.mountebank-studio/settings.json`, so every later `mountebank-studio` starts
+that way, including an instance on another port. It has to stick, since Mountebank refuses
+to load a file containing an injected response without the flag; and being asked again every
+morning is a nag rather than a safeguard. `--no-injection` turns it back off, everywhere.
+
+What ships is still off. A panel installed from npm should not arrive able to run whatever
+JavaScript a stub carries — but that is about the first run, not about somebody who has
+already decided.
 
 If it ever does refuse the file — one copied from elsewhere, or hand-edited into something
 it will not take — the panel comes up anyway, with the instance running empty. **The file is
