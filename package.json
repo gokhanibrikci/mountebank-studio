@@ -1,6 +1,6 @@
 {
   "name": "mountebank-studio",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "A visual console for Mountebank: imposters, stubs, responses and captured traffic, without hand-writing JSON. Unofficial — not affiliated with the mountebank project.",
   "license": "Apache-2.0",
   "author": "Gökhan İbrikçi <gokhanibrikci@gmail.com>",

@@ -251,9 +251,28 @@
   color: var(--tx-3);
 }
 
-/* ---------- moving the file the mocks are kept in ---------- */
+/* ---------- the one card of things you can change ---------- */
 
-.storeActs {
+/* The current value, under the sentence explaining what it is. */
+.settingValue {
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  margin-top: 2px;
+}
+
+.settingValue code {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-2);
+}
+
+/* The form a row opens into, full width beneath it. */
+.settingEdit {
+  padding: 4px 0 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.settingActs {
   display: flex;
   justify-content: flex-end;
   gap: 8px;

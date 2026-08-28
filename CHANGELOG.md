@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.1 — 28 August 2026
+
+- **Everything you can change is in one card.** The file the mocks live in had a section of
+  its own and the switch for injected JavaScript sat inside the read-only table of facts,
+  between a version string and an uptime — so nothing on the screen said which of it you
+  could touch. *Instance settings* is now the answer to "what can I change", and *This
+  instance* below it the answer to "what is true": no control appears in the second, and the
+  injection reading no longer appears in both. An instance this host did not start keeps its
+  Injection row where it was, since there is nothing to press on it.
+
 ## 0.6.0 — 28 August 2026
 
 **Injection can be turned on from Settings, and `config.state` can be kept on disk.**

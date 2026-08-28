@@ -35,8 +35,7 @@ import { useStudio } from '../store/useStudio';
 import { Button, CodeEditor, EmptyState, Icon, Modal, PageHead, Pill, Section, Strip } from '../ui';
 import { EnvironmentForm } from './EnvironmentForm';
 import { Failure } from './Failure';
-import { setInjection } from '../lib/mb/store';
-import { StoreSection } from './StoreSection';
+import { LocalSettings } from './LocalSettings';
 import styles from './Settings.module.css';
 
 /* ─────────────────────────────  small formatters  ──────────────────────── */
@@ -253,7 +252,7 @@ export function Settings() {
     <>
       <PageHead title="Settings" />
 
-      <Strip tone="info" icon={<Icon name="cog" />} title="What you can change here">
+      <Strip tone="info" icon={<Icon name="cog" />} title="What this screen holds">
         The environments below live in this browser only — nobody else sees them, and they are gone
         if <b>you</b> clear this site&rsquo;s data in your browser. Nothing here is written to your
         machine; the imposters are, by the instance itself. Each one names one Mountebank admin API, and nothing else: an address,
@@ -264,8 +263,9 @@ export function Settings() {
         otherwise it is called <b>directly</b>, which needs that instance to allow this origin (
         <code className={styles.cmd}>mb start --origin &quot;{origin}&quot;</code>). Each
         environment&rsquo;s own <b>Reached by</b> line below says which of the two it got.
-        The blocks after the environments are read from the instance you are pointed at, or act on
-        it — apart from the last, which is about this panel itself. A port, a stub or whether requests are recorded belongs to an imposter and
+        Below the environments, one card holds everything you can change about the instance this
+        command started; the blocks after it are read from that instance or act on it, apart from
+        the last, which is about this panel itself. A port, a stub or whether requests are recorded belongs to an imposter and
         is edited on that imposter&rsquo;s own screen.
       </Strip>
 
@@ -404,61 +404,6 @@ interface Fact {
 }
 
 /**
- * Turning injection on, which is a restart.
- *
- * Asks twice, because it is not a display preference: an instance that accepts injection
- * runs whatever JavaScript a stub carries, with a real `require`, as the user who started
- * it. Somebody arriving at this row from a refused stub should still be told that once.
- */
-function InjectionSwitch({ on, onDone }: { on: boolean; onDone: () => void }) {
-  const toast = useStudio((s) => s.toast);
-  const [asking, setAsking] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  async function go(next: boolean): Promise<void> {
-    setBusy(true);
-    const { ok, error } = await setInjection(next);
-    setBusy(false);
-    setAsking(false);
-    if (!ok) {
-      toast(error ?? 'The instance could not be restarted', 'err');
-      return;
-    }
-    toast(next ? 'Injection is on — the instance restarted' : 'Injection is off again');
-    onDone();
-  }
-
-  if (on) {
-    return (
-      <Button size="sm" onClick={() => void go(false)} disabled={busy} aria-busy={busy}>
-        {busy ? 'Restarting…' : 'Turn Off'}
-      </Button>
-    );
-  }
-  return asking ? (
-    <>
-      <Button
-        size="sm"
-        variant="danger"
-        icon={<Icon name="bolt" size={14} />}
-        onClick={() => void go(true)}
-        disabled={busy}
-        aria-busy={busy}
-      >
-        {busy ? 'Restarting…' : 'Yes, run JavaScript from stubs'}
-      </Button>
-      <Button size="sm" onClick={() => setAsking(false)} disabled={busy}>
-        Cancel
-      </Button>
-    </>
-  ) : (
-    <Button size="sm" icon={<Icon name="bolt" size={14} />} onClick={() => setAsking(true)}>
-      Turn On
-    </Button>
-  );
-}
-
-/**
  * Kept a component of its own so the queries below are never asked about an
  * environment that does not exist. Same two blocks, same sweep, same preview —
  * they simply do not mount until the panel has somewhere to point.
@@ -580,41 +525,27 @@ function Instance({ environment }: { environment: MbEnvironment }) {
             value: config.data.options.configfile ?? 'started without one',
             mono: true,
           },
-          {
-            label: 'Injection',
-            /*
-             * A startup flag, and the one somebody hits in the middle of writing a stub:
-             * mountebank refuses an `inject` response outright without it and cannot be
-             * told to accept one while it is running. Since this host owns the process and
-             * the file everything lives in, turning it on is a restart it can perform —
-             * so the row offers it rather than naming a flag and leaving.
-             */
-            value: (
-              <span className={styles.injRow}>
-                {config.data.options.allowInjection === true ? (
-                  <Pill tone="ok" dot>
-                    allowed
-                  </Pill>
-                ) : (
-                  <Pill tone="warn" dot>
-                    rejected
-                  </Pill>
-                )}
-                {isOwnInstance ? (
-                  <InjectionSwitch
-                    on={config.data.options.allowInjection === true}
-                    onDone={() => void config.refetch()}
-                  />
-                ) : null}
-              </span>
-            ),
-            note:
-              config.data.options.allowInjection === true
-                ? 'Stubs on this instance can run JavaScript — inject responses, and the decorate and shellTransform steps. That is code execution on this machine.'
-                : isOwnInstance
-                  ? 'An inject response is refused while this is off, and mountebank cannot be told otherwise while it runs. Turning it on restarts the instance; the mocks are written to their file first and read back after.'
-                  : 'An inject response is refused while this is off. It is a startup flag on whoever runs the instance: mb start --allowInjection.',
-          },
+          ...(isOwnInstance
+            ? /* The control, and with it the reading, live in the Settings card above.
+                 Repeating the value here would be the same fact in two places, which is
+                 what made this screen hard to scan. */
+              []
+            : [
+                {
+                  label: 'Injection',
+                  value:
+                    config.data.options.allowInjection === true ? (
+                      <Pill tone="ok" dot>
+                        allowed
+                      </Pill>
+                    ) : (
+                      <Pill tone="warn" dot>
+                        rejected
+                      </Pill>
+                    ),
+                  note: 'An inject response is refused while this is off. It is a startup flag on whoever runs the instance: mb start --allowInjection.',
+                },
+              ]),
           {
             /* `--origin` is the CORS flag; this version of mountebank has no
              allowCORS option, and `GET /config` reports the allowlist as
@@ -678,6 +609,15 @@ function Instance({ environment }: { environment: MbEnvironment }) {
 
   return (
     <>
+      {/* Everything you can change about this instance, in one place, above the things
+          you can only read. Absent for an instance this host did not start. */}
+      {isOwnInstance ? (
+        <LocalSettings
+          injectionAllowed={config.data?.options.allowInjection === true}
+          onInstanceChanged={() => void config.refetch()}
+        />
+      ) : null}
+
       {/* ─────────────────  read-only facts, no prose around them  ────────── */}
       <Section
         title="This instance"
@@ -716,10 +656,6 @@ function Instance({ environment }: { environment: MbEnvironment }) {
           </dl>
         )}
       </Section>
-
-      {/* Where the mocks live, for the instance this command started. Absent for any
-          other, since its persistence is not this host's to describe. */}
-      {isOwnInstance ? <StoreSection /> : null}
 
       {/* ──────────────────────────  actions, one per row  ──────────────────── */}
       <Section title="Maintenance" icon={<Icon name="trash" />}>
