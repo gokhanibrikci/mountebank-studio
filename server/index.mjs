@@ -237,10 +237,6 @@ const store = {
   savedAt: null,
   /** The last write that failed, so the panel can say so rather than look fine. */
   error: null,
-  /** Set while a write is in flight, so overlapping changes coalesce. */
-  writing: false,
-  /** Another change arrived mid-write; write once more when this one lands. */
-  again: false,
 };
 
 async function readSettings() {
@@ -308,18 +304,21 @@ async function snapshot(upstream) {
 }
 
 /**
- * Write the file, once, coalescing anything that arrives while it is happening.
+ * Write the file. Serialised, and always awaitable.
  *
- * Never throws at the caller: a failed save must not turn into a failed request the
- * user made. It is recorded instead, and the panel reports it.
+ * It used to return early when a write was already in flight, setting a flag so one more
+ * would follow. That is fine for a change arriving on its own — but a caller that AWAITS
+ * this, as the restart does, was then told the mocks were on disk when they were not, and
+ * the process holding them was about to be killed. So every call queues behind the last
+ * and resolves when its own write is done. The documents are small and the writes are
+ * rare; there was nothing worth being clever for.
+ *
+ * Never throws at the caller: a failed save must not turn into a failed request somebody
+ * made. It is recorded instead, and the panel reports it.
  */
-async function saveStore(upstream) {
-  if (store.path === null) return;
-  if (store.writing) {
-    store.again = true;
-    return;
-  }
-  store.writing = true;
+let writes = Promise.resolve();
+
+async function writeStoreOnce(upstream) {
   try {
     const document = await snapshot(upstream);
     mkdirSync(dirname(store.path), { recursive: true });
@@ -331,13 +330,13 @@ async function saveStore(upstream) {
   } catch (error) {
     store.error = error.message;
     console.error(`  ! could not write ${store.path}: ${error.message}`);
-  } finally {
-    store.writing = false;
-    if (store.again) {
-      store.again = false;
-      await saveStore(upstream);
-    }
   }
+}
+
+async function saveStore(upstream) {
+  if (store.path === null) return;
+  writes = writes.then(() => writeStoreOnce(upstream));
+  await writes;
 }
 
 /**

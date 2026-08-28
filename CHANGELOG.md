@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.2 — 28 August 2026
+
+- **A save that was still running counted as a save that had finished.** `saveStore` returned
+  early when a write was already in flight and set a flag so one more would follow — fine for
+  a change arriving on its own, and wrong for the restart, which AWAITS it before killing the
+  process holding the mocks. It could be told they were on disk when they were not. Writes
+  are serialised now and each call resolves when its own write is done. CI caught it as a 409
+  from the restart, which was the guard doing its job.
+
 ## 0.6.1 — 28 August 2026
 
 - **Everything you can change is in one card.** The file the mocks live in had a section of

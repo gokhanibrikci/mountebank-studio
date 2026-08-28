@@ -200,9 +200,11 @@ jobs:
             -H 'content-type: application/json' -H 'Origin: http://evil.example' \
             -d '{"allowInjection":true}')
           [ "$code" = "403" ] || { echo "another origin restarted the instance ($code)"; exit 1; }
-          curl -fsS -m 40 -X POST http://127.0.0.1:5399/mb/instance \
+          on=$(curl -sS -m 60 -X POST http://127.0.0.1:5399/mb/instance \
             -H 'content-type: application/json' -H 'Origin: http://127.0.0.1:5399' \
-            -d '{"allowInjection":true}' | grep -q '"allowInjection": *true'
+            -d '{"allowInjection":true}')
+          echo "$on" | grep -q '"allowInjection": *true' \
+            || { echo "turning injection on answered: $on"; cat studio2.log | tail -20; exit 1; }
           curl -fsS -m 5 http://127.0.0.1:5399/mb/local/config \
             | grep -q '"allowInjection": *true' || { echo "the flag did not take"; exit 1; }
           curl -fsS -m 5 http://127.0.0.1:5399/mb/local/imposters \
@@ -218,9 +220,11 @@ jobs:
           # Put it back as it ships, both because a later step asserts that and because a
           # step that leaves the world different from how it found it is a trap for the
           # next one. Turning it off is the same endpoint, so this checks that direction.
-          curl -fsS -m 40 -X POST http://127.0.0.1:5399/mb/instance \
+          off=$(curl -sS -m 60 -X POST http://127.0.0.1:5399/mb/instance \
             -H 'content-type: application/json' -H 'Origin: http://127.0.0.1:5399' \
-            -d '{"allowInjection":false}' | grep -q '"allowInjection": *false'
+            -d '{"allowInjection":false}')
+          echo "$off" | grep -q '"allowInjection": *false' \
+            || { echo "turning injection off answered: $off"; cat studio2.log | tail -20; exit 1; }
           curl -fsS -m 5 http://127.0.0.1:5399/mb/local/config \
             | grep -qE '"allowInjection": *false' || { echo "injection stayed on"; exit 1; }
 
