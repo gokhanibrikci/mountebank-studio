@@ -28,6 +28,13 @@ export type StoreState =
       error: string | null;
       /** Where a relative path would land. */
       cwd: string;
+      /**
+       * Where an injected response can keep `config.state`. Mountebank exposes that object
+       * to nobody, so the panel cannot save it — the injected function saves it itself.
+       */
+      statePath: string;
+      /** Whether the instance this host started accepts injection. */
+      allowInjection: boolean;
     };
 
 const URL_STORE = '/mb/store';
@@ -92,4 +99,39 @@ export function fileSize(bytes: number | null): string {
   if (bytes < 1024) return `${bytes} bytes`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Turn injection on or off, which means restarting the instance.
+ *
+ * `--allowInjection` is a startup flag: mountebank cannot be told to accept injection while
+ * it is running, and finding the terminal, stopping it and remembering the flag is a poor
+ * answer when this host owns the process and everything it holds is in a file. The mocks
+ * are written before the restart and loaded again after it, so nothing is lost.
+ */
+export async function setInjection(allow: boolean): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const response = await fetch('/mb/instance', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ allowInjection: allow }),
+    });
+    if (response.ok) return { ok: true, error: null };
+    const body: unknown = await response.json().catch(() => null);
+    const errors =
+      typeof body === 'object' && body !== null ? (body as { errors?: unknown }).errors : null;
+    const first = Array.isArray(errors) ? (errors[0] as { message?: unknown }) : null;
+    return {
+      ok: false,
+      error:
+        typeof first?.message === 'string'
+          ? first.message
+          : `The host refused (${response.status}).`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'The host could not be reached.',
+    };
+  }
 }

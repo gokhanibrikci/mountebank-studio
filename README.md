@@ -72,7 +72,7 @@ cannot be: a panel serves a page, an instance serves an admin API.
 
 Useful flags: `--port` for the panel, `--mb-port` for the instance, `--mb-url` to use
 an instance you already run instead of starting one, `--allow-injection` to let stubs
-run JavaScript, `--host 0.0.0.0` to expose the panel (read the warning it prints).
+run JavaScript (Settings can also turn that on later, which restarts the instance), `--host 0.0.0.0` to expose the panel (read the warning it prints).
 Mountebank is started with `--localOnly`, so it refuses connections from anything but
 this machine, and injection is **off**. Its own port is not published to your network —
 though a panel exposed with `--host 0.0.0.0` still forwards to it on `/mb/local`, which
@@ -186,6 +186,28 @@ persists is its own business.
 The environments you add are stored in the browser rather than on the machine, so a
 different browser — or cleared site data — meets the welcome screen again. What lives
 where is spelled out under [Adding an environment](#adding-an-environment).
+
+### Injected JavaScript, and the state it keeps
+
+An `inject` response is JavaScript that Mountebank runs in its own process, so it is off
+unless asked for. Start with `--allow-injection`, or turn it on in **Settings → This
+instance → Injection**: the mocks are written to their file, the instance restarts with the
+flag, and they come back.
+
+`config.state` is Mountebank's own object and it lives in memory — there is no endpoint
+that reads or writes it, so neither this panel nor its server can save it. What can is the
+injected function itself, which runs with a real `require`. So the inject editor offers
+**Keep config.state on disk**: the function you wrote is wrapped in a few lines that load a
+JSON file into `config.state` before it runs and write it back after. The editor keeps
+showing your function, not the wrapper.
+
+```
+  ~/.mountebank-studio/local-2525.state.json
+```
+
+Every file operation in the wrapper is inside a try/catch: a mock that stops answering
+because a directory turned read-only would be a worse failure than state that did not
+persist.
 
 ### Or from a checkout
 

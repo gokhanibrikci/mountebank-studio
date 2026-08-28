@@ -186,6 +186,36 @@ jobs:
             -d '{"path":"/tmp/evil.json"}')
           [ "$code" = "403" ] || { echo "another origin moved the store ($code)"; exit 1; }
 
+          echo "— injection is off, and the panel can restart the instance with it on"
+          # --allowInjection is a startup flag: mountebank refuses an inject response
+          # without it and cannot be told otherwise while running. The panel restarts the
+          # instance, and the mocks have to come back from the file.
+          curl -fsS -m 5 http://127.0.0.1:5399/mb/local/config \
+            | grep -q '"allowInjection": *false' || { echo "injection was already on"; exit 1; }
+          curl -fsS -m 10 -X POST http://127.0.0.1:5399/mb/local/imposters \
+            -H 'content-type: application/json' \
+            -d '{"port":6397,"protocol":"http","name":"survivor","stubs":[{"predicates":[{"equals":{"path":"/here"}}],"responses":[{"is":{"body":"here"}}]}]}' \
+            -o /dev/null
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 -X POST http://127.0.0.1:5399/mb/instance \
+            -H 'content-type: application/json' -H 'Origin: http://evil.example' \
+            -d '{"allowInjection":true}')
+          [ "$code" = "403" ] || { echo "another origin restarted the instance ($code)"; exit 1; }
+          curl -fsS -m 40 -X POST http://127.0.0.1:5399/mb/instance \
+            -H 'content-type: application/json' -H 'Origin: http://127.0.0.1:5399' \
+            -d '{"allowInjection":true}' | grep -q '"allowInjection": *true'
+          curl -fsS -m 5 http://127.0.0.1:5399/mb/local/config \
+            | grep -q '"allowInjection": *true' || { echo "the flag did not take"; exit 1; }
+          curl -fsS -m 5 http://127.0.0.1:5399/mb/local/imposters \
+            | grep -q '"survivor"' || { echo "the mocks did not come back"; exit 1; }
+          # and an inject response is now accepted, which is the point of the whole thing
+          curl -fsS -m 10 -X POST http://127.0.0.1:5399/mb/local/imposters/6397/stubs \
+            -H 'content-type: application/json' \
+            -d '{"stub":{"predicates":[{"equals":{"path":"/js"}}],"responses":[{"inject":"function (c) { return { body: \"ran\" }; }"}]}}' \
+            -o /dev/null
+          [ "$(curl -fsS -m 5 http://127.0.0.1:6397/js)" = "ran" ] \
+            || { echo "the injected answer did not run"; exit 1; }
+          curl -fsS -m 5 -X DELETE http://127.0.0.1:5399/mb/local/imposters/6397 -o /dev/null
+
           echo "— the instance this server starts writes no log file where it was run"
           # --nologfile: without it mountebank leaves mb.log in the working directory.
           if [ -f mb.log ]; then echo "mb.log was left behind"; exit 1; fi

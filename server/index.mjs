@@ -390,6 +390,122 @@ async function migrateFromDatadir(opts) {
   }
 }
 
+/** Wait until the instance answers, or give up. */
+async function waitForInstance(upstream, ms = 20000) {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`${upstream}/config`);
+      if (response.ok) return true;
+    } catch {
+      /* not up yet */
+    }
+    await new Promise((done) => setTimeout(done, 200));
+  }
+  return false;
+}
+
+/**
+ * `POST /mb/instance` — restart the instance this server started, with different flags.
+ *
+ * Only `allowInjection` for now, because it is the only one that cannot be changed any
+ * other way and that somebody hits in the middle of writing a stub. Everything survives:
+ * the mocks are in the file, and the file is what the new process is started from.
+ *
+ * Guarded like every other write from the page. Injection is code execution on this
+ * machine, so it is worth being exact about who can ask: loopback, same origin, and an
+ * instance this server owns.
+ */
+async function restartInstance(req, res, opts, origin, upstream) {
+  if (!mayRegister(opts)) {
+    sendJson(res, 403, {
+      errors: [
+        {
+          code: 'not allowed',
+          message: `This panel is bound to ${opts.host}, not loopback. Turning on injection from a page served to the network is not something this server will do.`,
+        },
+      ],
+    });
+    return;
+  }
+  const from = req.headers.origin;
+  if (from !== undefined && from !== origin) {
+    sendJson(res, 403, { errors: [{ code: 'not allowed', message: `${from} is not this panel.` }] });
+    return;
+  }
+  if (opts.mbUrl !== null || instance === null) {
+    sendJson(res, 409, {
+      errors: [
+        {
+          code: 'not ours',
+          message: 'This panel was pointed at an instance it did not start, so it cannot restart it.',
+        },
+      ],
+    });
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJson(req);
+  } catch (error) {
+    sendJson(res, 400, { errors: [{ code: 'bad request', message: error.message }] });
+    return;
+  }
+  if (typeof body?.allowInjection !== 'boolean') {
+    sendJson(res, 400, {
+      errors: [{ code: 'bad request', message: 'Expected { "allowInjection": true | false }.' }],
+    });
+    return;
+  }
+
+  /* Written first. The new process is started FROM the file, so anything not in it yet
+     would be lost — including a change made in the last few milliseconds. */
+  await saveStore(upstream);
+  if (store.error !== null) {
+    sendJson(res, 409, {
+      errors: [
+        {
+          code: 'not saved',
+          message: `The mocks could not be written to ${store.path} (${store.error}), so restarting would lose them.`,
+        },
+      ],
+    });
+    return;
+  }
+
+  const previous = opts.allowInjection;
+  opts.allowInjection = body.allowInjection;
+  const old = instance;
+  old.restarting = true;
+  old.kill();
+  await new Promise((done) => {
+    old.once('exit', done);
+    setTimeout(done, 3000);
+  });
+
+  startMountebank(opts);
+  if (!(await waitForInstance(upstream))) {
+    /* Put it back the way it was rather than leaving somebody with no instance. */
+    opts.allowInjection = previous;
+    instance?.kill();
+    startMountebank(opts);
+    await waitForInstance(upstream);
+    sendJson(res, 500, {
+      errors: [
+        {
+          code: 'restart failed',
+          message: 'The instance did not come back with that flag, so it was started again as it was.',
+        },
+      ],
+    });
+    return;
+  }
+
+  console.log(`  · instance restarted with injection ${opts.allowInjection ? 'ON' : 'off'}`);
+  sendJson(res, 200, { allowInjection: opts.allowInjection });
+}
+
 /** What the panel is told about the file: where, how big, when, and what went wrong. */
 function describeStore(opts) {
   if (opts.mbUrl !== null) {
@@ -415,6 +531,16 @@ function describeStore(opts) {
     error: store.error,
     /* Where a relative path would land, so the panel can say so before it is typed. */
     cwd: process.cwd(),
+    /*
+     * Where an injected response can keep `config.state` between restarts.
+     *
+     * Mountebank holds that object in memory and offers no way to read or set it from the
+     * outside, so this server cannot save it — but injected code runs inside that process
+     * with a real `require`, so it can save it itself. The panel wraps a function with the
+     * few lines that do it; the path comes from here so the two agree.
+     */
+    statePath: store.path.replace(/(\.json)?$/, '.state.json'),
+    allowInjection: opts.allowInjection === true,
   };
 }
 
@@ -585,6 +711,17 @@ function pipeChild(child) {
   pipeLines(child.stdout, (line) => WORTH_SAYING.test(line));
 }
 
+/**
+ * The instance this server started, kept so it can be replaced.
+ *
+ * `--allowInjection` is a startup flag: mountebank cannot be told to accept injection
+ * while it is running. Since this server owns both the process AND the file everything
+ * lives in, turning it on is a restart it can perform — kill, start again with the flag,
+ * and the mocks come back from the file. That is a different thing from asking somebody
+ * to find the terminal, stop it, and remember the flag.
+ */
+let instance = null;
+
 function startMountebank(opts) {
   const bin = mountebankBin();
   if (bin === null) {
@@ -635,8 +772,11 @@ function startMountebank(opts) {
   if (opts.datadir !== null) args.push('--datadir', opts.datadir);
 
   const child = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  instance = child;
   pipeChild(child);
   child.on('exit', (code) => {
+    /* A restart kills it on purpose; that is not a crash to report. */
+    if (child.restarting === true) return;
     if (code !== 0 && code !== null) {
       console.error(`\n  Mountebank exited with code ${code}. Is port ${opts.mbPort} free?\n`);
       process.exit(code);
@@ -988,6 +1128,10 @@ async function main() {
     }
     if (path === '/mb/store' && req.method === 'PUT') {
       void moveStore(req, res, opts, origin, upstream);
+      return;
+    }
+    if (path === '/mb/instance' && req.method === 'POST') {
+      void restartInstance(req, res, opts, origin, upstream);
       return;
     }
 

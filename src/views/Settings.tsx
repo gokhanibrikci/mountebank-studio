@@ -35,6 +35,7 @@ import { useStudio } from '../store/useStudio';
 import { Button, CodeEditor, EmptyState, Icon, Modal, PageHead, Pill, Section, Strip } from '../ui';
 import { EnvironmentForm } from './EnvironmentForm';
 import { Failure } from './Failure';
+import { setInjection } from '../lib/mb/store';
 import { StoreSection } from './StoreSection';
 import styles from './Settings.module.css';
 
@@ -403,6 +404,61 @@ interface Fact {
 }
 
 /**
+ * Turning injection on, which is a restart.
+ *
+ * Asks twice, because it is not a display preference: an instance that accepts injection
+ * runs whatever JavaScript a stub carries, with a real `require`, as the user who started
+ * it. Somebody arriving at this row from a refused stub should still be told that once.
+ */
+function InjectionSwitch({ on, onDone }: { on: boolean; onDone: () => void }) {
+  const toast = useStudio((s) => s.toast);
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function go(next: boolean): Promise<void> {
+    setBusy(true);
+    const { ok, error } = await setInjection(next);
+    setBusy(false);
+    setAsking(false);
+    if (!ok) {
+      toast(error ?? 'The instance could not be restarted', 'err');
+      return;
+    }
+    toast(next ? 'Injection is on — the instance restarted' : 'Injection is off again');
+    onDone();
+  }
+
+  if (on) {
+    return (
+      <Button size="sm" onClick={() => void go(false)} disabled={busy} aria-busy={busy}>
+        {busy ? 'Restarting…' : 'Turn Off'}
+      </Button>
+    );
+  }
+  return asking ? (
+    <>
+      <Button
+        size="sm"
+        variant="danger"
+        icon={<Icon name="bolt" size={14} />}
+        onClick={() => void go(true)}
+        disabled={busy}
+        aria-busy={busy}
+      >
+        {busy ? 'Restarting…' : 'Yes, run JavaScript from stubs'}
+      </Button>
+      <Button size="sm" onClick={() => setAsking(false)} disabled={busy}>
+        Cancel
+      </Button>
+    </>
+  ) : (
+    <Button size="sm" icon={<Icon name="bolt" size={14} />} onClick={() => setAsking(true)}>
+      Turn On
+    </Button>
+  );
+}
+
+/**
  * Kept a component of its own so the queries below are never asked about an
  * environment that does not exist. Same two blocks, same sweep, same preview —
  * they simply do not mount until the panel has somewhere to point.
@@ -526,15 +582,38 @@ function Instance({ environment }: { environment: MbEnvironment }) {
           },
           {
             label: 'Injection',
-            value: config.data.options.allowInjection ? (
-              <Pill tone="ok" dot>
-                allowed
-              </Pill>
-            ) : (
-              <Pill tone="warn" dot>
-                rejected
-              </Pill>
+            /*
+             * A startup flag, and the one somebody hits in the middle of writing a stub:
+             * mountebank refuses an `inject` response outright without it and cannot be
+             * told to accept one while it is running. Since this host owns the process and
+             * the file everything lives in, turning it on is a restart it can perform —
+             * so the row offers it rather than naming a flag and leaving.
+             */
+            value: (
+              <span className={styles.injRow}>
+                {config.data.options.allowInjection === true ? (
+                  <Pill tone="ok" dot>
+                    allowed
+                  </Pill>
+                ) : (
+                  <Pill tone="warn" dot>
+                    rejected
+                  </Pill>
+                )}
+                {isOwnInstance ? (
+                  <InjectionSwitch
+                    on={config.data.options.allowInjection === true}
+                    onDone={() => void config.refetch()}
+                  />
+                ) : null}
+              </span>
             ),
+            note:
+              config.data.options.allowInjection === true
+                ? 'Stubs on this instance can run JavaScript — inject responses, and the decorate and shellTransform steps. That is code execution on this machine.'
+                : isOwnInstance
+                  ? 'An inject response is refused while this is off, and mountebank cannot be told otherwise while it runs. Turning it on restarts the instance; the mocks are written to their file first and read back after.'
+                  : 'An inject response is refused while this is off. It is a startup flag on whoever runs the instance: mb start --allowInjection.',
           },
           {
             /* `--origin` is the CORS flag; this version of mountebank has no

@@ -30,7 +30,9 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { plural, STATUS_TEXT, statusTone, type StatusTone } from '../lib/format';
+import { isStateKept, unwrapState, wrapWithState } from '../lib/mb/injectState';
 import { pretty, uid } from '../lib/mb/model';
+import { readStore } from '../lib/mb/store';
 import type {
   Behavior,
   MbBehaviorName,
@@ -472,7 +474,31 @@ function ScriptFields({
   injectionAllowed,
   onPatch,
 }: PartProps & { injectionAllowed: boolean }): ReactElement {
-  const [source, setSource] = useMirror(resp.inject);
+  /*
+   * The editor shows the function somebody WROTE. When state is kept on disk, what is
+   * saved is that function inside a wrapper — see src/lib/mb/injectState.ts — and showing
+   * the wrapper would mean editing around plumbing nobody typed.
+   */
+  const kept = isStateKept(resp.inject);
+  const [source, setSource] = useMirror(unwrapState(resp.inject));
+
+  /* Where this host offers to keep it. Absent on a build no host keeps a store for, and
+     the switch is then absent too rather than offering a path that does not exist. */
+  const [statePath, setStatePath] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void readStore().then((state) => {
+      if (!cancelled && state !== null && state.kept) setStatePath(state.statePath);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const write = (next: string, keep: boolean): void => {
+    setSource(next);
+    onPatch({ inject: keep && statePath !== null ? wrapWithState(next, statePath) : next });
+  };
 
   return (
     <>
@@ -483,7 +509,9 @@ function ScriptFields({
           title="This instance will reject a JavaScript answer"
         >
           Mountebank is running without <span className="mono">--allowInjection</span>, so saving
-          this stub fails until injection is switched on.
+          this stub fails until injection is switched on. On the instance this command started,
+          Settings can turn it on — it restarts the instance and the mocks come back from their
+          file.
         </Strip>
       )}
       <Field
@@ -500,16 +528,25 @@ function ScriptFields({
           value={source}
           height={300}
           readOnly={disabled}
-          onChange={
-            disabled
-              ? undefined
-              : (next) => {
-                  setSource(next);
-                  onPatch({ inject: next });
-                }
-          }
+          onChange={disabled ? undefined : (next) => write(next, kept)}
         />
       </Field>
+      {statePath === null ? null : (
+        <Field
+          hint={
+            kept
+              ? `Loaded into config.state before this runs and written back after, in ${statePath}. Mountebank keeps that object in memory and offers no way to save it, so the function does it — the lines are added around yours when this is on.`
+              : 'config.state lives in the instance and goes when it restarts. Switch this on to have it loaded from a file before this function runs and written back after.'
+          }
+        >
+          <Switch
+            label="Keep config.state on disk"
+            checked={kept}
+            disabled={disabled}
+            onChange={(next) => write(source, next)}
+          />
+        </Field>
+      )}
     </>
   );
 }

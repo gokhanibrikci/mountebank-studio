@@ -259,3 +259,12 @@
   gap: 8px;
   margin-top: 12px;
 }
+
+/* ---------- the injection row: a verdict and the button that changes it ---------- */
+
+.injRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}

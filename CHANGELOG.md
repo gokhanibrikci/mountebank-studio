@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.0 — 28 August 2026
+
+**Injection can be turned on from Settings, and `config.state` can be kept on disk.**
+
+- **Injection is a startup flag, so the panel restarts the instance.** Mountebank refuses an
+  `inject` response without `--allowInjection` and cannot be told otherwise while it runs —
+  which lands somebody in the middle of writing a stub with an error naming a flag and a
+  terminal they have to go find. Settings → *This instance* → *Injection* now offers to
+  turn it on: the mocks are written to their file, the instance is restarted with the flag,
+  and they are loaded back. It asks twice, because an instance that accepts injection runs
+  whatever JavaScript a stub carries, as the user who started it. The endpoint is
+  loopback-and-same-origin only, and refuses for an instance this host did not start.
+- **`config.state` survives a restart, if you ask it to.** Mountebank keeps that object in
+  memory and exposes it to nobody — no endpoint reads or writes it — so neither this panel
+  nor its server can save it. The injected function can: it runs inside that process with a
+  real `require`. The inject editor has a *Keep config.state on disk* switch that wraps your
+  function in the few lines which load a JSON file into `config.state` before it runs and
+  write it back after, including for the callback form mountebank also accepts. The editor
+  still shows the function you wrote; the wrapper is marked and taken off again. Measured
+  against a real instance: a counter at 3 before a restart reads 4 after it.
+
 ## 0.5.1 — 28 August 2026
 
 - **The file is keyed by the instance's port**, the way the directory it replaced was:
