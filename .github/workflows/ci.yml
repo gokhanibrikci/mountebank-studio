@@ -166,6 +166,10 @@ jobs:
           # --noParse: a body quoting a template must come back as it was written
           [ "$body" = "<%- nope %>" ] || { echo "body came back as: $body"; exit 1; }
           curl -fsS -m 5 -X DELETE http://127.0.0.1:5399/mb/local/imposters/6399 -o /dev/null
+          sleep 1
+          # The store is keyed by the mountebank port, so a later step on another port has
+          # its own file. This asserts the keying rather than trusting it.
+          echo "$file" | grep -q 'local-2599\.json$' || { echo "not keyed by port: $file"; exit 1; }
 
           echo "— the panel can move the file, and a bad path is refused"
           moved=$(mktemp -d)/mocks.json

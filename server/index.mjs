@@ -90,7 +90,7 @@ const HELP = `
     --mb-url <url>     use a Mountebank ALREADY running there, and start none
     --store <file>     the single JSON file everything is kept in, read at startup and
                        rewritten on every change. Settings can move it, and the choice
-                       is remembered (default ~/.mountebank-studio/mocks.json)
+                       is remembered (default ~/.mountebank-studio/local-<mb-port>.json)
     --datadir <path>   ALSO keep mountebank's own directory tree here. Rarely wanted:
                        the file above is the one this panel reads and writes
     --memory           keep nothing: the instance holds everything and loses it when
@@ -178,11 +178,13 @@ function parseArgs(argv) {
 async function storePathFor(opts) {
   if (opts.memory) return null;
   if (opts.store !== null) return resolve(process.cwd(), opts.store);
-  const remembered = (await readSettings()).store;
+  /* Remembered per instance for the same reason the default is keyed: a path chosen for
+     one instance is not a path chosen for another. */
+  const remembered = (await readSettings()).stores?.[String(opts.mbPort)];
   if (typeof remembered === 'string' && remembered.trim() !== '') {
     return resolve(process.cwd(), remembered);
   }
-  return DEFAULT_STORE;
+  return defaultStore(opts.mbPort);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -217,8 +219,15 @@ async function storePathFor(opts) {
 /** Where the panel remembers the path between runs, so it is a setting and not a flag. */
 const SETTINGS_FILE = join(homedir(), '.mountebank-studio', 'settings.json');
 
-/** The default, when nobody has ever chosen one. */
-const DEFAULT_STORE = join(homedir(), '.mountebank-studio', 'mocks.json');
+/**
+ * The default file, when nobody has chosen one.
+ *
+ * KEYED BY THE MOUNTEBANK PORT, the way the directory it replaced was. `--mb-port 3000` is
+ * a different instance and gets a different file; sharing one meant two servers on one
+ * machine writing over each other, and the second one starting with the first one's
+ * imposters — which is how CI found it, with an EADDRINUSE on a port it never asked for.
+ */
+const defaultStore = (mbPort) => join(homedir(), '.mountebank-studio', `local-${mbPort}.json`);
 
 /** What this run is keeping, and where. Mutable: the panel can move it. */
 const store = {
@@ -243,10 +252,13 @@ async function readSettings() {
   }
 }
 
-async function writeSettings(patch) {
+/** Remember the file this instance keeps its mocks in, leaving other instances alone. */
+async function rememberStore(mbPort, path) {
   const current = await readSettings();
+  const stores = typeof current.stores === 'object' && current.stores !== null ? current.stores : {};
+  const next = { ...current, stores: { ...stores, [String(mbPort)]: path } };
   mkdirSync(dirname(SETTINGS_FILE), { recursive: true });
-  await writeFile(SETTINGS_FILE, `${JSON.stringify({ ...current, ...patch }, null, 2)}\n`, 'utf8');
+  await writeFile(SETTINGS_FILE, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
 }
 
 /**
@@ -464,7 +476,7 @@ async function moveStore(req, res, opts, origin, upstream) {
     return;
   }
 
-  await writeSettings({ store: checked.path });
+  await rememberStore(opts.mbPort, checked.path);
   console.log(`  · imposters now kept in ${checked.path}`);
   sendJson(res, 200, describeStore(opts));
 }

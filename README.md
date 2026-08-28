@@ -156,13 +156,16 @@ Everything the instance holds — imposters, stubs, responses, settings — is *
 file**. The banner says which:
 
 ```
-  Imposters kept in        ~/.mountebank-studio/mocks.json
+  Imposters kept in        ~/.mountebank-studio/local-2525.json
 ```
 
 The file is read at startup and rewritten whenever anything changes, so closing the
 terminal loses nothing. It is also just a file: open it, diff it, commit it next to the
 tests it feeds, send it to somebody. It is the same shape `--configfile` reads and the same
 shape **Settings → Full configuration** shows, so what comes out goes back in.
+
+The name carries the instance's port, so `--mb-port 3000` is a different instance with a
+file of its own rather than two servers writing over each other.
 
 Move it with `--store ./mocks.json`, or in the panel under **Settings → Where these mocks
 are kept** — the current mocks are written to the new path before it takes effect, and the

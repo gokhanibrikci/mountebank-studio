@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 — 28 August 2026
+
+- **The file is keyed by the instance's port**, the way the directory it replaced was:
+  `~/.mountebank-studio/local-2525.json`. 0.5.0 gave every instance the same default, so two
+  servers on one machine wrote over each other and the second one started holding the
+  first one's imposters — which shows up as an EADDRINUSE on a port nobody asked for. Found
+  by CI within minutes of the release. The remembered path is per instance too.
+
 ## 0.5.0 — 28 August 2026
 
 **Everything the local instance holds is one JSON file, and the panel can move it.**
