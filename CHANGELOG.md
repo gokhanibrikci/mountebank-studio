@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.4 — 28 August 2026
+
+- **The check that 0.6.3 added was a race, and it lost on a real machine.** It decided a
+  config file was to blame only if mountebank died *before ever answering* — but mountebank
+  opens its admin port first and its own CLI then posts the imposters, so by the time it
+  exits on the file it has been answering for a second. Here it happened to lose that race;
+  elsewhere it happened to win. A rule this simple should not be discovered by watching a
+  process exit, so the file is read first: not JSON, no `imposters` array, or an `inject`,
+  `decorate` or `shellTransform` with injection off, and it is never handed over at all.
+  Mountebank does not even print its refusal now. The timing check stays for what reading
+  cannot predict — a duplicate port, a protocol with no plugin — and is judged on when the
+  process died rather than on whether a port answered.
+- **The state is announced wherever it is reached**, at startup as well as on a refusal, and
+  the banner says `NOT loaded` instead of naming a file that is not running.
+
 ## 0.6.3 — 28 August 2026
 
 **A lockout, and the two mistakes behind it.** Turning injection on in Settings, saving an

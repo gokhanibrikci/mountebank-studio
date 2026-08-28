@@ -248,6 +248,14 @@ jobs:
           done
           curl -fsS -m 5 http://127.0.0.1:5399/ | grep -q '<div id="root">' \
             || { echo "the panel did not survive the file"; cat locked.log | tail -20; exit 1; }
+          # Decided by reading the file, not by watching the child exit: mountebank opens
+          # its admin port BEFORE loading the configuration, so anything keyed on "did it
+          # answer" is a race — and it was lost on a real machine. If this holds, the
+          # instance was never handed the file and never printed its own refusal.
+          grep -q 'invalid injection' locked.log \
+            && { echo "the file was handed over anyway"; exit 1; }
+          grep -q 'is NOT loaded' locked.log \
+            || { echo "the stranded file was not announced"; cat locked.log | tail -20; exit 1; }
           curl -fsS -m 5 http://127.0.0.1:5399/mb/store | grep -q '"loadFailed": *"' \
             || { echo "the failed load was not reported"; exit 1; }
           # and the file is left exactly as it was, not overwritten by the empty instance

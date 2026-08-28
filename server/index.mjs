@@ -773,8 +773,75 @@ function pipeChild(child) {
  */
 let instance = null;
 
-/** True once the instance has answered at least once this run. */
-let everAnswered = false;
+/**
+ * Anything in the store that mountebank will only run with --allowInjection.
+ *
+ * Checked BEFORE the file is handed over, because the alternative was a race that this
+ * server lost on somebody else's machine: mountebank's admin port comes up first and its
+ * own CLI then posts the imposters, so "did it ever answer" is true by the time it dies on
+ * the file. A rule this simple should not be discovered by watching a process exit.
+ *
+ * The three names are mountebank's own gate — `inject` on a response or a predicate,
+ * `decorate` and `shellTransform` among the behaviors — and it refuses the whole
+ * configuration if any of them is present without the flag. Measured on 2.9.4.
+ */
+const INJECTION_KEYS = new Set(['inject', 'decorate', 'shellTransform']);
+
+function findsInjection(value) {
+  if (Array.isArray(value)) return value.some(findsInjection);
+  if (typeof value !== 'object' || value === null) return false;
+  for (const [key, inner] of Object.entries(value)) {
+    if (INJECTION_KEYS.has(key)) return true;
+    if (findsInjection(inner)) return true;
+  }
+  return false;
+}
+
+/**
+ * Why this file cannot be handed to mountebank as it stands, or null when it can.
+ *
+ * Only the things that are certain from reading it: not JSON, not a configuration, or
+ * injection without the flag. Anything subtler is still caught by the exit handler.
+ */
+/**
+ * Say it once, wherever the state was reached — reading the file ourselves, or watching
+ * mountebank refuse it. Somebody whose mocks stopped answering needs the reason and the way
+ * back in the same breath, not a stack trace.
+ */
+function sayStoreStranded() {
+  console.error(
+    [
+      '',
+      `  ${store.path} is NOT loaded:`,
+      `    ${store.loadFailed}`,
+      '',
+      /injection/i.test(store.loadFailed ?? '')
+        ? '  Those mocks use injected JavaScript, which is off unless asked for. Start again\n  with --allow-injection, or turn it on in Settings — one press, and they are back.'
+        : '  Fix the file, or point somewhere else in Settings.',
+      '',
+      '  The instance is running empty. The file is untouched and nothing will be written',
+      '  over it until it loads.',
+      '',
+    ].join('\n'),
+  );
+}
+
+function whyStoreWontLoad(opts) {
+  if (store.path === null || !existsSync(store.path)) return null;
+  let body;
+  try {
+    body = JSON.parse(readFileSync(store.path, 'utf8'));
+  } catch (error) {
+    return `it is not JSON (${error.message})`;
+  }
+  if (!Array.isArray(body?.imposters)) {
+    return 'it has no "imposters" array, so it is not a mountebank configuration';
+  }
+  if (!opts.allowInjection && findsInjection(body)) {
+    return 'JavaScript injection is not allowed unless mb is run with the --allowInjection flag';
+  }
+  return null;
+}
 
 /**
  * The last thing mountebank complained about.
@@ -835,10 +902,17 @@ function startMountebank(opts) {
    * --noParse always goes with it: without it the file is run through EJS on load, and
    * a recorded body containing `<%` would be executed instead of served.
    */
+  /* Read it ourselves first: a file mountebank will refuse is never handed over, so the
+     panel does not depend on catching a process that exits at its own pace. */
+  if (store.loadFailed === null) {
+    store.loadFailed = whyStoreWontLoad(opts);
+    if (store.loadFailed !== null) sayStoreStranded();
+  }
   const withConfig = store.path !== null && existsSync(store.path) && store.loadFailed === null;
   if (withConfig) {
     args.push('--configfile', store.path, '--noParse');
   }
+  const startedAt = Date.now();
   if (opts.datadir !== null) args.push('--datadir', opts.datadir);
 
   const child = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -854,22 +928,15 @@ function startMountebank(opts) {
      * the instance starts without it, the file is untouched, and nothing is written over
      * it while that is true.
      */
-    if (code !== 0 && withConfig && !everAnswered) {
+    /*
+     * Still here for what reading the file cannot predict — a duplicate port, a protocol
+     * this build has no plugin for. Judged on WHEN it died rather than on whether the
+     * admin port ever answered: mountebank opens that port before loading the file, so
+     * "it answered" is true even when the file is what killed it.
+     */
+    if (code !== 0 && withConfig && Date.now() - startedAt < 20000) {
       store.loadFailed = lastFailure(child) ?? 'mountebank would not start with this file';
-      console.error(
-        [
-          '',
-          `  ${store.path} could not be loaded:`,
-          `    ${store.loadFailed}`,
-          '',
-          /injection/i.test(store.loadFailed)
-            ? '  Those mocks use injected JavaScript, which is off unless asked for. Start\n  again with --allow-injection, or turn it on in Settings — the file is untouched\n  and will be loaded then.'
-            : '  The file is untouched. Fix it, or point somewhere else in Settings.',
-          '',
-          '  The panel is up, and nothing will be written over that file meanwhile.',
-          '',
-        ].join('\n'),
-      );
+      sayStoreStranded();
       startMountebank(opts);
       return;
     }
@@ -1150,13 +1217,6 @@ async function main() {
   }
 
   const child = opts.mbUrl === null ? startMountebank(opts) : null;
-  /* Once it has answered, a later crash is a crash — not a file this server should stop
-     handing it. Only a death BEFORE the first answer is blamed on the config file. */
-  if (child !== null) {
-    void waitForInstance(upstream).then((up) => {
-      if (up) everAnswered = true;
-    });
-  }
 
   const bootstrap = {
     /*
@@ -1296,7 +1356,9 @@ async function main() {
           ? ''
           : store.path === null
             ? `  ${label('Not kept')}--memory: imposters live in this process and go when it stops`
-            : `  ${label('Imposters kept in')}${store.path}`,
+            : store.loadFailed !== null
+              ? `  ${label('NOT loaded')}${store.path} — running empty, see above`
+              : `  ${label('Imposters kept in')}${store.path}`,
         '',
         opts.allowInjection
           ? '  Injection is ON. Stubs on this instance can run JavaScript.\n'
