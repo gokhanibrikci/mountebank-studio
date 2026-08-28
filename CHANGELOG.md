@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.3 — 28 August 2026
+
+**A lockout, and the two mistakes behind it.** Turning injection on in Settings, saving an
+inject stub, and closing the terminal left the next `mountebank-studio` unable to start at
+all: Mountebank refuses a `--configfile` containing an injected response unless it was given
+`--allowInjection`, and it exits rather than starting empty — taking the panel with it. The
+mocks were safe on disk and completely unreachable, with no screen to fix it from.
+
+- **A setting the panel changes now survives the restart.** `allowInjection` is remembered
+  per instance in `~/.mountebank-studio/settings.json`, exactly as the store path already
+  was. Without that, turning it on wrote a file that the next start refused — the panel
+  handed itself a configuration it could not load.
+- **A file Mountebank will not load can no longer take the panel down.** If it exits before
+  ever answering while it was given a config file, that is a reported state rather than a
+  fatal one: the instance is started without the file, and the terminal and Settings both
+  say which file, why, and what to do. The panel comes up.
+- **And that file is never written over.** `saveStore` refuses while a load has failed —
+  replacing the mocks somebody still has with the empty instance that stood in for them is
+  the one unrecoverable thing here. A restart with the flag clears the state, loads the
+  file, and skips the pre-save, since in that direction the file is the truth.
+
 ## 0.6.2 — 28 August 2026
 
 - **A save that was still running counted as a save that had finished.** `saveStore` returned

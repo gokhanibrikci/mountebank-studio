@@ -237,6 +237,19 @@ const store = {
   savedAt: null,
   /** The last write that failed, so the panel can say so rather than look fine. */
   error: null,
+  /**
+   * Why the file could not be loaded at startup, or null when it was.
+   *
+   * Mountebank REFUSES TO START on a --configfile it will not accept — an injected
+   * response with injection off is the common one — and it exits, taking the panel with
+   * it. That left somebody with mocks they could not reach and no screen to fix it from.
+   *
+   * So a file that fails is a state, not a fatal error: the instance is started without
+   * it, the file is left exactly as it is, and NOTHING IS WRITTEN while this is set.
+   * Overwriting the file that could not be loaded with the empty instance that replaced
+   * it is the one unrecoverable thing here.
+   */
+  loadFailed: null,
 };
 
 async function readSettings() {
@@ -248,13 +261,30 @@ async function readSettings() {
   }
 }
 
-/** Remember the file this instance keeps its mocks in, leaving other instances alone. */
-async function rememberStore(mbPort, path) {
+/** Remember something about one instance, leaving the others alone. */
+async function remember(section, mbPort, value) {
   const current = await readSettings();
-  const stores = typeof current.stores === 'object' && current.stores !== null ? current.stores : {};
-  const next = { ...current, stores: { ...stores, [String(mbPort)]: path } };
+  const group = typeof current[section] === 'object' && current[section] !== null ? current[section] : {};
+  const next = { ...current, [section]: { ...group, [String(mbPort)]: value } };
   mkdirSync(dirname(SETTINGS_FILE), { recursive: true });
   await writeFile(SETTINGS_FILE, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+}
+
+const rememberStore = (mbPort, path) => remember('stores', mbPort, path);
+
+/**
+ * Whether this instance was last told to accept injected JavaScript.
+ *
+ * A setting the panel changes has to survive the restart, or it is not a setting. Without
+ * this, turning injection on in Settings and then closing the terminal left a store file
+ * full of injected responses and an instance started without the flag — which mountebank
+ * refuses to load, so the next `mountebank-studio` did not come up at all.
+ */
+const rememberInjection = (mbPort, allow) => remember('injection', mbPort, allow);
+
+async function injectionFor(opts) {
+  if (opts.allowInjection) return true;
+  return (await readSettings()).injection?.[String(opts.mbPort)] === true;
 }
 
 /**
@@ -335,6 +365,9 @@ async function writeStoreOnce(upstream) {
 
 async function saveStore(upstream) {
   if (store.path === null) return;
+  /* The instance is empty because the file would not load. Writing it back would replace
+     mocks somebody still has with the nothing that replaced them. */
+  if (store.loadFailed !== null) return;
   writes = writes.then(() => writeStoreOnce(upstream));
   await writes;
 }
@@ -458,10 +491,17 @@ async function restartInstance(req, res, opts, origin, upstream) {
     return;
   }
 
-  /* Written first. The new process is started FROM the file, so anything not in it yet
-     would be lost — including a change made in the last few milliseconds. */
-  await saveStore(upstream);
-  if (store.error !== null) {
+  /*
+   * Written first. The new process is started FROM the file, so anything not in it yet
+   * would be lost — including a change made in the last few milliseconds.
+   *
+   * Unless the file is what failed to load: then it is the truth and the running instance
+   * is the empty thing, so there is nothing to write and everything to read.
+   */
+  const retryingLoad = store.loadFailed !== null;
+  if (retryingLoad) store.loadFailed = null;
+  else await saveStore(upstream);
+  if (!retryingLoad && store.error !== null) {
     sendJson(res, 409, {
       errors: [
         {
@@ -487,6 +527,7 @@ async function restartInstance(req, res, opts, origin, upstream) {
   if (!(await waitForInstance(upstream))) {
     /* Put it back the way it was rather than leaving somebody with no instance. */
     opts.allowInjection = previous;
+    if (retryingLoad) store.loadFailed = 'mountebank would not start with this file';
     instance?.kill();
     startMountebank(opts);
     await waitForInstance(upstream);
@@ -501,6 +542,9 @@ async function restartInstance(req, res, opts, origin, upstream) {
     return;
   }
 
+  /* Remembered, so `mountebank-studio` on its own comes back the same way. Without this
+     the next start refused the file it had just been told to write. */
+  await rememberInjection(opts.mbPort, opts.allowInjection);
   console.log(`  · instance restarted with injection ${opts.allowInjection ? 'ON' : 'off'}`);
   sendJson(res, 200, { allowInjection: opts.allowInjection });
 }
@@ -528,6 +572,9 @@ function describeStore(opts) {
     bytes,
     savedAt: store.savedAt,
     error: store.error,
+    /* Set when mountebank refused the file at startup: the mocks in it are NOT running,
+       and nothing will be written over it until they are. */
+    loadFailed: store.loadFailed,
     /* Where a relative path would land, so the panel can say so before it is typed. */
     cwd: process.cwd(),
     /*
@@ -692,9 +739,14 @@ function pipeLines(stream, keep) {
 }
 
 function pipeChild(child) {
+  /* Kept as well as printed: when it exits on a file it would not load, its own error
+     line is the only sentence that says why, and "exited with code 1" is not one. */
+  child.said = [];
   /* Anything but the noise, and the hint that belongs to it. */
   let droppedNoise = false;
   pipeLines(child.stderr, (line) => {
+    child.said.push(line);
+    if (child.said.length > 200) child.said.shift();
     if (PUNYCODE.test(line)) {
       droppedNoise = true;
       return false;
@@ -720,6 +772,24 @@ function pipeChild(child) {
  * to find the terminal, stop it, and remember the flag.
  */
 let instance = null;
+
+/** True once the instance has answered at least once this run. */
+let everAnswered = false;
+
+/**
+ * The last thing mountebank complained about.
+ *
+ * Kept per child so a start that fails can say WHY. Its own error line is the best
+ * sentence available, and "exited with code 1" is not one.
+ */
+function lastFailure(child) {
+  const said = child.said ?? [];
+  for (const line of said) {
+    const match = /"message"\s*:\s*"([^"]+)"/.exec(line);
+    if (match !== null) return match[1];
+  }
+  return said.find((line) => /error/i.test(line));
+}
 
 function startMountebank(opts) {
   const bin = mountebankBin();
@@ -765,7 +835,8 @@ function startMountebank(opts) {
    * --noParse always goes with it: without it the file is run through EJS on load, and
    * a recorded body containing `<%` would be executed instead of served.
    */
-  if (store.path !== null && existsSync(store.path)) {
+  const withConfig = store.path !== null && existsSync(store.path) && store.loadFailed === null;
+  if (withConfig) {
     args.push('--configfile', store.path, '--noParse');
   }
   if (opts.datadir !== null) args.push('--datadir', opts.datadir);
@@ -776,6 +847,33 @@ function startMountebank(opts) {
   child.on('exit', (code) => {
     /* A restart kills it on purpose; that is not a crash to report. */
     if (child.restarting === true) return;
+    /*
+     * It died on the file, before ever answering. Mountebank exits rather than starting
+     * empty, and taking the panel with it leaves somebody holding mocks they cannot reach
+     * and no screen to fix it from. So a file it will not load becomes a reported state:
+     * the instance starts without it, the file is untouched, and nothing is written over
+     * it while that is true.
+     */
+    if (code !== 0 && withConfig && !everAnswered) {
+      store.loadFailed = lastFailure(child) ?? 'mountebank would not start with this file';
+      console.error(
+        [
+          '',
+          `  ${store.path} could not be loaded:`,
+          `    ${store.loadFailed}`,
+          '',
+          /injection/i.test(store.loadFailed)
+            ? '  Those mocks use injected JavaScript, which is off unless asked for. Start\n  again with --allow-injection, or turn it on in Settings — the file is untouched\n  and will be loaded then.'
+            : '  The file is untouched. Fix it, or point somewhere else in Settings.',
+          '',
+          '  The panel is up, and nothing will be written over that file meanwhile.',
+          '',
+        ].join('\n'),
+      );
+      startMountebank(opts);
+      return;
+    }
+
     if (code !== 0 && code !== null) {
       console.error(`\n  Mountebank exited with code ${code}. Is port ${opts.mbPort} free?\n`);
       process.exit(code);
@@ -1047,9 +1145,18 @@ async function main() {
   if (opts.mbUrl === null) {
     store.path = await storePathFor(opts);
     if (store.path !== null) await migrateFromDatadir(opts);
+    /* A setting the panel changed has to survive the restart, or it is not a setting. */
+    opts.allowInjection = await injectionFor(opts);
   }
 
   const child = opts.mbUrl === null ? startMountebank(opts) : null;
+  /* Once it has answered, a later crash is a crash — not a file this server should stop
+     handing it. Only a death BEFORE the first answer is blamed on the config file. */
+  if (child !== null) {
+    void waitForInstance(upstream).then((up) => {
+      if (up) everAnswered = true;
+    });
+  }
 
   const bootstrap = {
     /*

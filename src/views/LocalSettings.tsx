@@ -96,6 +96,21 @@ export function LocalSettings({ injectionAllowed, onInstanceChanged }: LocalSett
 
   return (
     <Section title="Instance settings" icon={<Icon name="cog" />}>
+      {state.loadFailed === null ? null : (
+        <Strip
+          tone="err"
+          icon={<Icon name="alert" />}
+          title="These mocks are on disk but not running"
+        >
+          Mountebank would not start with <span className="mono">{state.path}</span>:{' '}
+          {state.loadFailed}. It is running empty instead, and nothing will be written over that
+          file meanwhile — so the mocks are safe, they are just not answering.{' '}
+          {/injection/i.test(state.loadFailed)
+            ? 'Turning on injected JavaScript below restarts the instance and loads them.'
+            : 'Fix the file, or point somewhere else, and the next start will load it.'}
+        </Strip>
+      )}
+
       <div className={styles.rows}>
         {/* ─────────────────────  where the mocks are kept  ───────────────────── */}
         <div className={styles.row}>

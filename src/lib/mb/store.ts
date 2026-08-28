@@ -35,6 +35,15 @@ export type StoreState =
       statePath: string;
       /** Whether the instance this host started accepts injection. */
       allowInjection: boolean;
+      /**
+       * Why the file could not be loaded at startup, or null when it was.
+       *
+       * Mountebank refuses to start on a configuration it will not accept — an injected
+       * response with injection off is the usual one. The host starts the instance without
+       * the file instead of dying, and writes nothing over it, so what is running is EMPTY
+       * while the mocks are still on disk. That is worth saying loudly.
+       */
+      loadFailed: string | null;
     };
 
 const URL_STORE = '/mb/store';

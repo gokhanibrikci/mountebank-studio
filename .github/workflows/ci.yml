@@ -228,6 +228,58 @@ jobs:
           curl -fsS -m 5 http://127.0.0.1:5399/mb/local/config \
             | grep -qE '"allowInjection": *false' || { echo "injection stayed on"; exit 1; }
 
+          echo "— a file mountebank will not load must not take the panel with it"
+          # The lockout this guards: injection is turned on, an inject stub is saved into
+          # the store, the panel is closed, and the next plain start hands mountebank a
+          # file it refuses — it exits, and before this the whole panel went with it,
+          # leaving somebody with mocks they could not reach and no screen to fix it from.
+          store=$(curl -fsS -m 5 http://127.0.0.1:5399/mb/store \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin)["path"])')
+          pkill -f 'server/index.mjs --port 5399' 2>/dev/null || true
+          sleep 2
+          # One line, because a heredoc inside a YAML block scalar cannot close on an
+          # indented terminator and cannot dedent to column 0 without ending the block.
+          printf '%s' '{"imposters":[{"protocol":"http","port":6396,"name":"injected","stubs":[{"predicates":[{"equals":{"path":"/x"}}],"responses":[{"inject":"function (c) { return { body: 0x27ran0x27 }; }"}]}]}]}' \
+            | sed 's/0x27/'"'"'/g' > "$store"
+          node server/index.mjs --port 5399 --mb-port 2599 > locked.log 2>&1 &
+          for i in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:5399/mb/local/config > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS -m 5 http://127.0.0.1:5399/ | grep -q '<div id="root">' \
+            || { echo "the panel did not survive the file"; cat locked.log | tail -20; exit 1; }
+          curl -fsS -m 5 http://127.0.0.1:5399/mb/store | grep -q '"loadFailed": *"' \
+            || { echo "the failed load was not reported"; exit 1; }
+          # and the file is left exactly as it was, not overwritten by the empty instance
+          curl -fsS -m 10 -X POST http://127.0.0.1:5399/mb/local/imposters \
+            -H 'content-type: application/json' \
+            -d '{"port":6395,"protocol":"http","stubs":[{"responses":[{"is":{"body":"new"}}]}]}' \
+            -o /dev/null
+          sleep 1
+          grep -q 'injected' "$store" || { echo "the stranded file was overwritten"; exit 1; }
+          curl -fsS -m 5 -X DELETE http://127.0.0.1:5399/mb/local/imposters/6395 -o /dev/null
+
+          echo "— and turning injection on loads it, and is remembered"
+          curl -fsS -m 60 -X POST http://127.0.0.1:5399/mb/instance \
+            -H 'content-type: application/json' -H 'Origin: http://127.0.0.1:5399' \
+            -d '{"allowInjection":true}' | grep -q '"allowInjection": *true'
+          [ "$(curl -fsS -m 5 http://127.0.0.1:6396/x)" = "ran" ] \
+            || { echo "the stranded mocks did not come back"; exit 1; }
+          pkill -f 'server/index.mjs --port 5399' 2>/dev/null || true
+          sleep 2
+          # plain start, no flag: the setting has to survive or the lockout returns
+          node server/index.mjs --port 5399 --mb-port 2599 > remembered.log 2>&1 &
+          for i in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:5399/mb/local/config > /dev/null; then break; fi
+            sleep 1
+          done
+          [ "$(curl -fsS -m 5 http://127.0.0.1:6396/x)" = "ran" ] \
+            || { echo "injection was not remembered"; cat remembered.log | tail -20; exit 1; }
+          curl -fsS -m 60 -X POST http://127.0.0.1:5399/mb/instance \
+            -H 'content-type: application/json' -H 'Origin: http://127.0.0.1:5399' \
+            -d '{"allowInjection":false}' -o /dev/null
+          curl -fsS -m 5 -X DELETE http://127.0.0.1:5399/mb/local/imposters/6396 -o /dev/null
+
           echo "— the instance this server starts writes no log file where it was run"
           # --nologfile: without it mountebank leaves mb.log in the working directory.
           if [ -f mb.log ]; then echo "mb.log was left behind"; exit 1; fi

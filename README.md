@@ -190,9 +190,16 @@ where is spelled out under [Adding an environment](#adding-an-environment).
 ### Injected JavaScript, and the state it keeps
 
 An `inject` response is JavaScript that Mountebank runs in its own process, so it is off
-unless asked for. Start with `--allow-injection`, or turn it on in **Settings → This
-instance → Injection**: the mocks are written to their file, the instance restarts with the
-flag, and they come back.
+unless asked for. Start with `--allow-injection`, or turn it on in **Settings → Instance
+settings → Injected JavaScript**: the mocks are written to their file, the instance restarts
+with the flag, and they come back. The choice is remembered, so the next plain
+`mountebank-studio` starts the same way — it has to be, since Mountebank refuses to load a
+file containing an injected response without the flag.
+
+If it ever does refuse the file — one copied from elsewhere, or hand-edited into something
+it will not take — the panel comes up anyway, with the instance running empty. **The file is
+not touched and nothing is written over it** until it loads, so what is on disk is safe; it
+is just not answering. The terminal and Settings both say which and why.
 
 `config.state` is Mountebank's own object and it lives in memory — there is no endpoint
 that reads or writes it, so neither this panel nor its server can save it. What can is the
