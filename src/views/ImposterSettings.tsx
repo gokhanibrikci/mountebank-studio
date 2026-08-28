@@ -82,6 +82,9 @@ export function ImposterSettings({
   const id = useId();
 
   const [draft, setDraft] = useState<Draft>(() => seed(imposter));
+  /* Open when there is one to see, so an imposter that HAS a default response never hides
+     it behind a press. */
+  const [showDefault, setShowDefault] = useState(() => imposter.defaultResponse.trim() !== '');
   const patch = (part: Partial<Draft>) => setDraft((d) => ({ ...d, ...part }));
 
   const port = Number(draft.portText);
@@ -199,7 +202,30 @@ export function ImposterSettings({
           screen rather than in tabs that hide each other. */}
       {json}
 
+      {/*
+        Folded away until it holds something.
+        
+        Most imposters never set one, and a 260px editor sitting empty reads as a field
+        somebody forgot to fill in rather than one they chose not to. It is not idle — set
+        it and mountebank merges it into every response that leaves a field out, which the
+        request drawer already reads to explain an unmatched request — so it is one line
+        away rather than gone.
+      */}
       <Section title="Default response">
+        {!showDefault ? (
+          <div className={styles.unsetRow}>
+            <div className={styles.rowText}>
+              <b>Not set</b>
+              <span>
+                Unmatched requests get Mountebank&rsquo;s own answer
+                {draft.protocol === 'tcp' ? ' — an empty `data`' : ' — 200 with an empty body'}.
+              </span>
+            </div>
+            <Button onClick={() => setShowDefault(true)} disabled={locked}>
+              Set One
+            </Button>
+          </div>
+        ) : (
         <Field
           hint={
             /* Not only when nothing matches: mountebank merges these fields into every
@@ -223,6 +249,7 @@ export function ImposterSettings({
             onChange={locked ? undefined : (next) => patch({ defaultResponse: next })}
           />
         </Field>
+        )}
       </Section>
 
       {draft.protocol === 'https' ? (

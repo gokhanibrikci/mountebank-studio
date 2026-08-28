@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.1 — 28 August 2026
+
+**Three editors overlapped on one document; now each scope has one job.** The imposter's
+JSON, a stub's JSON view and the Default response field are the same JSON at three zoom
+levels — but not the same write. A stub goes through `PUT /imposters/:port/stubs/:index` and
+keeps everything the imposter has captured; the imposter-level document has no such endpoint,
+so applying it deletes the imposter and creates it again, and the captured requests go with
+it.
+
+- **The imposter's JSON is shown, not opened for editing.** It is the place to read the whole
+  document or copy it; *Replace Imposter from JSON* unlocks it and then asks once more before
+  applying. The safe editor stayed an editor — removing the stub view would have pushed the
+  same task onto the destructive path.
+- **Default response is one line until it holds something.** It is not idle — set it and
+  mountebank merges it into every response that leaves a field out, and the request drawer
+  reads it to explain an unmatched request — but most imposters never set one, and a 260px
+  editor sitting empty reads as a field somebody forgot rather than one they chose not to
+  fill. *Not set — unmatched requests get Mountebank's own answer*, and a button.
+
 ## 0.7.0 — 28 August 2026
 
 - **Injection, once decided, stays decided — for the machine.** Turning it on, with

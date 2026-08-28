@@ -59,3 +59,36 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- a setting that is not set: one line and a way in ---------- */
+
+/* `.row` already exists above and is the same flex line, so this only adds the text
+   column and pushes the action to the end. Redefining .row would have shadowed a class
+   the rest of this screen uses. */
+.unsetRow {
+  composes: row;
+  gap: 18px;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowText b {
+  font-size: var(--fs-base);
+  font-weight: 650;
+  color: var(--tx);
+}
+
+.rowText span {
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+}
+
+.unsetRow > :last-child {
+  margin-left: auto;
+  flex: none;
+}

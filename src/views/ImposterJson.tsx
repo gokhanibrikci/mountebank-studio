@@ -68,39 +68,71 @@ export interface ImposterJsonProps {
 export function ImposterJson({ imposter, saving, onApply }: ImposterJsonProps) {
   const wire = useMemo(() => pretty(imposterToMb(imposter)), [imposter]);
   const [text, setText] = useState(wire);
+  /**
+   * READ-ONLY until somebody asks to replace the imposter.
+   *
+   * Three editors overlapped on one document: this one, the stub editor's JSON view, and
+   * the Default response field. Same JSON at three zoom levels — but not the same write.
+   * A stub goes through `PUT /imposters/:port/stubs/:index` and keeps everything the
+   * imposter has captured; THIS one has no such endpoint to use, so it deletes the
+   * imposter and creates it again, and the captured requests go with it.
+   *
+   * So the safe editor stays an editor and this one stops being one by default. It is the
+   * place to read the whole document, copy it, or paste one in — and the last needs
+   * saying out loud first, which is what the button now does.
+   */
+  const [replacing, setReplacing] = useState(false);
 
   const parsed = useMemo(() => parse(text), [text]);
   const inSync = text === wire;
-  const locked = saving;
+  const locked = saving || !replacing;
 
   const readout = !parsed.ok
     ? { cls: styles.bad, icon: 'alert' as const, text: `invalid JSON — ${parsed.message}` }
-    : inSync
-      ? { cls: styles.ok, icon: 'check' as const, text: 'in sync' }
-      : { cls: styles.ok, icon: 'check' as const, text: 'valid — apply to load it' };
+    : !replacing
+      ? {
+          cls: styles.ok,
+          icon: 'check' as const,
+          text: 'exactly what this imposter is, as mountebank holds it',
+        }
+      : inSync
+        ? { cls: styles.ok, icon: 'check' as const, text: 'editable — change it and apply' }
+        : { cls: styles.ok, icon: 'check' as const, text: 'valid — apply to load it' };
 
   return (
     <Section
       title="Whole imposter as JSON"
       icon={<Icon name="code" />}
       tools={
-        <>
-          {!inSync ? (
-            <Button size="sm" variant="ghost" onClick={() => setText(wire)}>
-              Reload from server
+        replacing ? (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setText(wire);
+                setReplacing(false);
+              }}
+            >
+              Cancel
             </Button>
-          ) : null}
-          <Button
-            size="sm"
-            icon={<Icon name="check" />}
-            disabled={locked || !parsed.ok || inSync}
-            onClick={() => {
-              if (parsed.ok) onApply(parsed.imposter);
-            }}
-          >
-            {saving ? 'Replacing…' : 'Replace Imposter from JSON'}
+            <Button
+              size="sm"
+              variant="danger"
+              icon={<Icon name="check" />}
+              disabled={saving || !parsed.ok}
+              onClick={() => {
+                if (parsed.ok) onApply(parsed.imposter);
+              }}
+            >
+              {saving ? 'Replacing…' : 'Yes, replace the imposter'}
+            </Button>
+          </>
+        ) : (
+          <Button size="sm" icon={<Icon name="up" />} onClick={() => setReplacing(true)}>
+            Replace Imposter from JSON
           </Button>
-        </>
+        )
       }
     >
       {/*
@@ -123,10 +155,20 @@ export function ImposterJson({ imposter, saving, onApply }: ImposterJsonProps) {
       />
 
       <p className={styles.note}>
-        This is exactly what gets POSTed to <span className="mono">/imposters</span>. Applying
-        deletes the imposter and creates it again from this text — mountebank has no PUT for a
-        single imposter, so its captured requests do not survive. Editing one stub does not go
-        through here and keeps them.
+        {replacing ? (
+          <>
+            This is exactly what gets POSTed to <span className="mono">/imposters</span>.
+            Applying deletes the imposter and creates it again from this text — mountebank has
+            no PUT for a single imposter, so its captured requests do not survive.
+          </>
+        ) : (
+          <>
+            This is exactly what gets POSTed to <span className="mono">/imposters</span>, and it
+            is shown rather than opened for editing: applying it deletes the imposter and
+            creates it again, so the requests it has captured would go. To change one stub, open
+            it from the list — that goes through the stub itself and keeps them.
+          </>
+        )}
       </p>
     </Section>
   );
